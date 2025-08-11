@@ -1,0 +1,30 @@
+{
+  "className": "Configuration",
+  "properties": {
+    "Name": "Group Admin"
+  },
+
+  "Children": [
+    {
+      "className": "BoolValue",
+      "properties": {
+        "Value": false,
+        "Name": "Group admin enabled"
+      }
+    },
+    {
+      "className": "StringValue",
+      "properties": {
+        "Value": "",
+        "Name": "Group id"
+      }
+    },
+    {
+      "className": "IntValue",
+      "properties": {
+        "Value": 250,
+        "Name": "Required minimum group rank"
+      }
+    }
+  ]
+}

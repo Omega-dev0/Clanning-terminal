@@ -1,0 +1,30 @@
+{
+  "className": "Configuration",
+  "properties": {
+    "Name": "Configuration"
+  },
+
+  "Children": [
+    {
+      "className": "ObjectValue",
+      "properties": {
+        "Name": "Terminal volume"
+      }
+    },
+    {
+      "className": "Configuration",
+      "properties": {
+        "Name": "Default configuration values",
+        "Attributes": {
+          "max_points": { "Float64": 100 },
+          "points_per_second": { "Float64": 1 },
+          "capture_time": { "Float64": 1 },
+          "rollback_rate": { "Float64": 0 },
+
+          "reset_points_on_capture": { "Bool": false },
+          "uncapture_if_empty": { "Bool": false }
+        }
+      }
+    }
+  ]
+}

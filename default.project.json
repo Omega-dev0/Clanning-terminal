@@ -1,0 +1,12 @@
+{
+  "name": "Clanning terminal",
+  "tree": {
+    "$className": "DataModel",
+
+    "ServerScriptService": {
+      "Clanning terminal": {
+        "$path": "src"
+      }
+    }
+  }
+}

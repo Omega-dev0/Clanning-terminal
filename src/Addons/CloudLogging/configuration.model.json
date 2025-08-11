@@ -1,0 +1,13 @@
+{
+  "className": "Configuration",
+  "properties": {
+    "Name": "Configuration",
+    "Attributes": {
+      "_API_Key": { "String": "your_api_key_here" },
+      "_Private_Key": { "String": "your_private_key_here" },
+      "ServerURL": { "String": "https://terminal.omegadev.xyz/api/uploadMatchData" },
+      "StudioServerURL": { "String": "http://localhost/api/uploadMatchData" },
+      "Enabled": { "Bool": true }
+    }
+  }
+}
