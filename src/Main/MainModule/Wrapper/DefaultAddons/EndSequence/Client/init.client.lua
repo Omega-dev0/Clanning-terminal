@@ -8,6 +8,8 @@ local config = game.ReplicatedStorage:WaitForChild("OmegasTerminalConfig_Persist
 type sequenceController = {
 	display: (config: any, data: any) -> (),
 	hide: () -> (),
+
+	showCloudLogging: (toggle: boolean) -> ()?,
 }
 
 local controller = require(gui.Controller) :: sequenceController
@@ -18,7 +20,11 @@ packets.terminalEvent.listen(function(data)
 		local cfg = {
 			core = httpService:JSONDecode(config:GetAttribute("core_config")),
 			terminal = httpService:JSONDecode(config:GetAttribute("terminal_config")),
+			properties = httpService:JSONDecode(config:GetAttribute("properties")),
 		}
+		if controller.showCloudLogging ~= nil then
+			controller.showCloudLogging(cfg.properties.isCloudLoggingEnabled)
+		end
 		controller.display(cfg, data.data)
 	end
 end)

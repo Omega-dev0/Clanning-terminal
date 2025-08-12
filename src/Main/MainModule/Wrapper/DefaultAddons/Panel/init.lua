@@ -35,10 +35,10 @@ panelAddon.init = function(wrapper)
 					wrapper.controls:UnfreezeTime(player)
 				end,
 				addTime = function(amount)
-					wrapper.controls:AddTime(amount, player)
+					wrapper.controls:AddTime(player, amount)
 				end,
 				removeTime = function(amount)
-					wrapper.controls:AddTime(-amount, player)
+					wrapper.controls:AddTime(player, -amount)
 				end,
 
 				addProgress = function(team, progress)
@@ -49,22 +49,22 @@ panelAddon.init = function(wrapper)
 				end,
 
 				lockTerminal = function()
-					wrapper.controls:Lock()
+					wrapper.controls:Lock(player)
 				end,
 				unlockTerminal = function()
-					wrapper.controls:Unlock()
+					wrapper.controls:Unlock(player)
 				end,
 
 				reset = function()
-					wrapper.controls:Reset()
+					wrapper.controls:Reset(player)
 				end,
 
 				stop = function()
-					wrapper.controls:Stop()
+					wrapper.controls:Stop(player)
 				end,
 
 				start = function()
-					wrapper.controls:Start()
+					wrapper.controls:Start(player)
 				end,
 			}
 

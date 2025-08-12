@@ -1,0 +1,67 @@
+{
+  "className": "Configuration",
+  "properties": {
+    "Name": "Configuration"
+  },
+
+  "Children": [
+    {
+      "className": "Folder",
+      "properties": {
+        "Name": "Axis 1"
+      },
+      "Children": [
+        {
+          "className": "ObjectValue",
+          "properties": {
+            "Name": "Attackers endpoint"
+          }
+        },
+        {
+          "className": "ObjectValue",
+          "properties": {
+            "Name": "Defenders endpoint"
+          }
+        }
+      ]
+    },
+    {
+      "className": "Folder",
+      "properties": {
+        "Name": "Axis 2"
+      },
+      "Children": [
+        {
+          "className": "ObjectValue",
+          "properties": {
+            "Name": "Attackers endpoint"
+          }
+        },
+        {
+          "className": "ObjectValue",
+          "properties": {
+            "Name": "Defenders endpoint"
+          }
+        }
+      ]
+    },
+    {
+      "className": "Configuration",
+      "properties": {
+        "Name": "Default configuration values",
+        "Attributes": {
+          "max_points": { "Float64": 5 },
+          "progress_speed": { "Float64": 10 },
+
+          "additional_player_speed": { "Float64": 0.01 },
+          "max_additional_players": { "Float64": 10 },
+
+          "zone_radius": { "Float64": 10 },
+          "zone_height": { "Float64": 10 },
+
+          "axisConfig": { "String": "axis1+2" }
+        }
+      }
+    }
+  ]
+}

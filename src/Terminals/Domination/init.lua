@@ -1,7 +1,7 @@
 local metadata = {
-	name = "Default Terminal",
-	description = "The default terminal for hardpoint, dualcap and rollback",
-	version = "v1.1",
+	name = "Domination Terminal",
+	description = "Domination terminal",
+	version = "v1.0",
 	author = "Omega77073",
 	compatibility = ">=1.2.0",
 }
@@ -18,20 +18,8 @@ function fetchConfig()
 	local configInstance = script.Configuration
 	local defaultConfigInstance = configInstance["Default configuration values"]
 
-	assert(
-		configInstance["Terminal volume"].Value,
-		"[TERMINAL] Terminal volume is not set ! Set the value in Terminal > Configuration > Terminal volume"
-	)
-	if defaultConfigInstance:GetAttribute("capture_time") > 15 then
-		warn(
-			"[TERMINAL] Terminal capture time is very high, it takes "
-				.. defaultConfigInstance:GetAttribute("capture_time")
-				.. " seconds to capture the terminal, is this intended?"
-		)
-	end
-
-	return {
-		zone = basicZones.fromPart(configInstance["Terminal volume"].Value),
+	local cfg = {
+		terminals = {},
 
 		captureTime = defaultConfigInstance:GetAttribute("capture_time"),
 		maxPoints = defaultConfigInstance:GetAttribute("max_points"),
@@ -40,23 +28,60 @@ function fetchConfig()
 
 		uncaptureIfEmpty = defaultConfigInstance:GetAttribute("uncapture_if_empty"),
 	}
+
+	local tcount = 0
+	for _, value in pairs(configInstance.Terminals:GetChildren()) do
+		tcount += 1
+		if value:IsA("ObjectValue") then
+			if value.Value == nil then
+				warn("[TERMINAL] Terminal " .. value.Name .. " has no value set, skipping.")
+				continue
+			end
+			cfg.terminals[value.Name] = basicZones.fromPart(value.Value)
+		end
+	end
+
+	assert(
+		tcount > 0,
+		`[TERMINAL] No terminal volumes found ! Add object values in Configuration > Terminals with the value set as the terminal's volume`
+	)
+
+	if defaultConfigInstance:GetAttribute("capture_time") > 15 then
+		warn(
+			"[TERMINAL] Terminal capture time is very high, it takes "
+				.. defaultConfigInstance:GetAttribute("capture_time")
+				.. " seconds to capture the terminal, is this intended?"
+		)
+	end
+
+	return cfg
 end
 
 ------ CONTROLS ---------
 
 function terminalFunctions:Lock()
-	self.state = "locked"
-	self.events.stateChanged:Fire(self.state)
+	local newStates = {}
+	for terminalName, terminal in pairs(self.terminals) do
+		terminal.state = "locked"
+		newStates[terminalName] = terminal.state
+	end
+	self.events.stateChanged:Fire(newStates)
 	self.events.partialUpdate:Fire({
-		{ stateKey = "state", stateValue = self.state },
+		{ stateKey = "states", stateValue = newStates },
 	})
 end
 
 function terminalFunctions:Unlock()
-	self.state = "neutral"
-	self.events.stateChanged:Fire(self.state)
+	local newStates = {}
+	for terminalName, terminal in pairs(self.terminals) do
+		terminal.state = "neutral"
+		terminal.captureProgress = 0
+		terminal.lastCaptureProgress = 0
+		newStates[terminalName] = terminal.state
+	end
+	self.events.stateChanged:Fire(newStates)
 	self.events.partialUpdate:Fire({
-		{ stateKey = "state", stateValue = self.state },
+		{ stateKey = "states", stateValue = newStates },
 	})
 end
 
@@ -78,13 +103,18 @@ end
 function terminalFunctions:Reset()
 	self.attackerPoints = 0
 	self.defenderPoints = 0
-	self.captureProgress = 0
+	local newStates = {}
+	for terminalName, _ in pairs(self.terminals) do
+		self.terminals[terminalName].captureProgress = 0
+		self.terminals[terminalName].lastCaptureProgress = 0
+		self.terminals[terminalName].state = "neutral"
+		newStates[terminalName] = self.terminals[terminalName].state
+	end
 	self.events.pointsChanged:Fire(self.attackerPoints, self.defenderPoints)
-	self.state = "locked"
-	self.events.stateChanged:Fire(self.state)
+	self.events.stateChanged:Fire(newStates)
 
 	self.events.partialUpdate:Fire({
-		{ stateKey = "state", stateValue = self.state },
+		{ stateKey = "states", stateValue = newStates },
 		{ stateKey = "attackerPoints", stateValue = self.attackerPoints },
 		{ stateKey = "defenderPoints", stateValue = self.defenderPoints },
 		{ stateKey = "captureProgress", stateValue = self.captureProgress },
@@ -120,27 +150,57 @@ function terminalFunctions:_tickPoints(tickRate: number)
 	self.defenderPoints = newPoints.defenderPoints
 end
 function terminalFunctions:_computeState()
-	local newState = self.components.computeState(self)
-	if newState ~= self.state then
-		self.state = newState
-		self.events.stateChanged:Fire(self.state)
+	local newStates = {}
+	local count = 0
+	for terminalName, terminal in pairs(self.terminals) do
+		local newState = self.components.computeState(self, terminal)
+		if newState ~= terminal.state then
+			terminal.state = newState
+			newStates[terminalName] = newState
+			count += 1
+		end
 	end
+	if count > 0 then
+		self.events.stateChanged:Fire(newStates)
+	end
+	return newStates, count
 end
 function terminalFunctions:_updatePlayerCount(tickRate: number)
-	local newPlayerCount = self.components.getPlayerCount(self, tickRate)
-	if newPlayerCount.attackersCount ~= self.attackersCount or newPlayerCount.defendersCount ~= self.defendersCount then
-		self.events.playerCountChanged:Fire(newPlayerCount.attackersCount, newPlayerCount.defendersCount)
+	local newCounts = {}
+	local count = 0
+	for terminalName, terminal in pairs(self.terminals) do
+		local newCount = self.components.getPlayerCount(self, terminal, tickRate)
+		if newCount.attackersCount ~= terminal.attackersCount or newCount.defendersCount ~= terminal.defendersCount then
+			terminal.attackersCount = newCount.attackersCount
+			terminal.defendersCount = newCount.defendersCount
+			newCounts[terminalName] = {
+				attackersCount = terminal.attackersCount,
+				defendersCount = terminal.defendersCount,
+			}
+			count += 1
+		end
 	end
-	self.attackersCount = newPlayerCount.attackersCount
-	self.defendersCount = newPlayerCount.defendersCount
+	if count > 0 then
+		self.events.playerCountChanged:Fire(newCounts)
+	end
+	return newCounts, count
 end
 function terminalFunctions:_updateCaptureProgress(tickRate: number)
-	local newCaptureProgress = self.components.updateCaptureProgress(self, tickRate)
-	if newCaptureProgress ~= self.captureProgress then
-		self.lastCaptureProgress = self.captureProgress
-		self.captureProgress = newCaptureProgress
-		self.events.captureProgressChanged:Fire(self.captureProgress, self.lastCaptureProgress)
+	local newProgress = {}
+	local count = 0
+	for terminalName, terminal in pairs(self.terminals) do
+		local newCaptureProgress = self.components.updateCaptureProgress(self, terminal, tickRate)
+		if newCaptureProgress ~= terminal.captureProgress then
+			terminal.lastCaptureProgress = terminal.captureProgress
+			terminal.captureProgress = newCaptureProgress
+			newProgress[terminalName] = terminal.captureProgress
+			count += 1
+		end
 	end
+	if count > 0 then
+		self.events.captureProgressChanged:Fire(newProgress)
+	end
+	return newProgress, count
 end
 function terminalFunctions:_updateWinState()
 	local winner = self.components.getWinner(self)
@@ -152,21 +212,17 @@ end
 
 function terminalFunctions:Tick(tickRate: number)
 	local lastState = {
-		attackersCount = self.attackersCount,
-		defendersCount = self.defendersCount,
 		attackerPoints = self.attackerPoints,
 		defenderPoints = self.defenderPoints,
-		captureProgress = self.captureProgress,
-		state = self.state,
 	}
-	self:_updatePlayerCount(tickRate)
+	local newCounts, nci = self:_updatePlayerCount(tickRate)
 
 	if self.state == "locked" then
 		return
 	end
 
-	self:_updateCaptureProgress(tickRate)
-	self:_computeState()
+	local newProgresses, ncp = self:_updateCaptureProgress(tickRate)
+	local newStates, ncs = self:_computeState()
 
 	self:_tickPoints(tickRate)
 	self:_updateWinState()
@@ -181,12 +237,35 @@ function terminalFunctions:Tick(tickRate: number)
 		end
 	end
 
+	if nci > 0 then
+		table.insert(updateObject, {
+			stateKey = "playerCounts",
+			stateValue = newCounts,
+		})
+	end
+	if ncp > 0 then
+		table.insert(updateObject, {
+			stateKey = "captureProgresses",
+			stateValue = newProgresses,
+		})
+	end
+	if ncs > 0 then
+		table.insert(updateObject, {
+			stateKey = "states",
+			stateValue = newStates,
+		})
+	end
+
 	if #updateObject > 0 then
 		self.events.partialUpdate:Fire(updateObject)
 	end
 end
 
 function terminalFunctions:updatePersistantConfig()
+	local terminals = {}
+	for terminalName, terminal in pairs(self.terminals) do
+		terminals[terminalName] = terminal.index
+	end
 	self.persistantConfigObject:SetAttribute(
 		"terminal_config",
 		game:GetService("HttpService"):JSONEncode({
@@ -195,6 +274,7 @@ function terminalFunctions:updatePersistantConfig()
 			uncaptureIfEmpty = self.config.uncaptureIfEmpty,
 			captureTime = self.config.captureTime,
 			rollbackRate = self.config.rollbackRate,
+			terminals = terminals,
 		})
 	)
 end
@@ -216,18 +296,33 @@ return function(wrapper)
 	terminal.timeLeft = math.huge
 	terminal.defenderPoints = 0
 	terminal.attackerPoints = 0
-	terminal.state = "locked"
 
 	terminal.config = fetchConfig()
 	terminal.config.attackersTeam = wrapper.config.attackers.team
 	terminal.config.defendersTeam = wrapper.config.defenders.team
 
-	terminal.captureProgress = 0
-	terminal.lastCaptureProgress = 0
-	terminal.attackersCount = 0
-	terminal.defendersCount = 0
+	terminal.terminals = {}
 
-	terminal.terminalId = "default"
+	local tempTerms = {}
+	local keys = {}
+	for terminalName, zone in pairs(terminal.config.terminals) do
+		tempTerms[terminalName] = {
+			captureProgress = 0,
+			lastCaptureProgress = 0,
+			state = "neutral",
+			attackersCount = 0,
+			defendersCount = 0,
+			name = terminalName,
+		}
+		table.insert(keys, terminalName)
+	end
+	table.sort(keys)
+	for i, terminalName in pairs(keys) do
+		terminal.terminals[terminalName] = tempTerms[terminalName]
+		terminal.terminals[terminalName].index = i
+	end
+
+	terminal.terminalId = "domination"
 	terminal.persistantConfigObject = wrapper.persistantConfig
 
 	terminal.components = require(script.DefaultComponents)

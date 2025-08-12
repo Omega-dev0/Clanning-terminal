@@ -6,10 +6,24 @@
 
   "Children": [
     {
-      "className": "ObjectValue",
+      "className": "Folder",
       "properties": {
-        "Name": "Terminal volume"
-      }
+        "Name": "Terminals"
+      },
+      "Children": [
+        {
+          "className": "ObjectValue",
+          "properties": {
+            "Name": "A"
+          }
+        },
+        {
+          "className": "ObjectValue",
+          "properties": {
+            "Name": "B"
+          }
+        }
+      ]
     },
     {
       "className": "Configuration",

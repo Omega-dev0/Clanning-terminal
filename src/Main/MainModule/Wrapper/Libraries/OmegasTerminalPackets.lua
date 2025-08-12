@@ -2,8 +2,8 @@ local ByteNet = require(game.ReplicatedStorage:WaitForChild("Libraries"):WaitFor
 local terminalSystem = ByteNet.defineNamespace("terminalSystem", function()
 	return {
 		statusUpdate = ByteNet.definePacket({
-			value = ByteNet.string,
-			reliabilityType = "unreliable",
+			value = ByteNet.unknown,
+			reliabilityType = "reliable",
 		}),
 
 		partialStatusUpdate = ByteNet.definePacket({

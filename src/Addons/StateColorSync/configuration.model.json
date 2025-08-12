@@ -1,0 +1,32 @@
+{
+  "className": "Configuration",
+  "properties": {
+    "Name": "Configuration",
+    "Attributes": {
+      "neutral_color": { "Color3": [1, 1, 1] },
+      "attackers_color": { "Color3": [1, 0.2, 0.2] },
+      "defenders_color": { "Color3": [0.04, 0.2, 1] },
+      "locked_color": { "Color3": [0.2, 0.2, 0.2] }
+    }
+  },
+  "Children": [
+    {
+      "className": "ObjectValue",
+      "properties": {
+        "Name": "Sync Parent"
+      }
+    },
+    {
+      "className": "ObjectValue",
+      "properties": {
+        "Name": "Sync Parent"
+      }
+    },
+    {
+      "className": "ObjectValue",
+      "properties": {
+        "Name": "Sync Parent"
+      }
+    }
+  ]
+}

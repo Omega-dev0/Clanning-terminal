@@ -20,10 +20,7 @@ type terminal = {
 	components: { [string]: any },
 
 	events: {
-		playerCountChanged: BindableEvent,
-		pointsChanged: BindableEvent,
-		captureProgressChanged: BindableEvent,
-		stateChanged: BindableEvent,
+		partialUpdate: BindableEvent,
 		endEvent: BindableEvent,
 		startEvent: BindableEvent,
 	},
@@ -32,10 +29,6 @@ type terminal = {
 	defenderPoints: number,
 	attackerPoints: number,
 	state: "attackers" | "defenders" | "neutral" | "locked",
-
-	captureProgress: number?,
-	attackersCount: number?,
-	defendersCount: number?,
 
 	Lock: () -> nil,
 	Unlock: () -> nil,
@@ -107,6 +100,8 @@ function module.updatePersistantConfig()
 			startTime = module.startTime,
 		})
 	)
+
+	module.persistantConfig:SetAttribute("properties", httpService:JSONEncode(module.properties))
 end
 
 function checkConfig(cfg)
@@ -148,6 +143,8 @@ function module.Init()
 	module.startTime = 0
 	module.started = false
 	module.timeFrozen = false
+
+	module.state = {}
 
 	module.tickCallbacks = {}
 
@@ -220,6 +217,10 @@ function module.Init()
 			workspace:SetAttribute("GameName", game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name)
 		end)
 	end)
+
+	game.Players.PlayerAdded:Connect(function(player)
+		packets.statusUpdate.sendTo(module.state, player)
+	end)
 end
 
 --- Controls ---
@@ -283,9 +284,9 @@ function module.controls:AddTime(player: Player, seconds: number)
 	module.logEvent:Fire(`{seconds > 0 and "Added" or "Removed"} {seconds} seconds to timer`, player.UserId)
 end
 
-function module.controls:AddProgress(player: Player, team: "attackers" | "defenders", progress: number)
+function module.controls:AddProgress(player: Player, team: "attackers" | "defenders", progress: number, ...)
 	if module.terminal ~= nil then
-		module.terminal:AddProgress(team, progress)
+		module.terminal:AddProgress(team, progress, ...)
 		module.logEvent:Fire(`Added {progress}% to {team}`, player.UserId)
 	end
 end
@@ -408,67 +409,11 @@ function module:LoadTerminal(moduleScript: ModuleScript)
 
 	table.insert(
 		module.terminalConnections,
-		terminal.events.playerCountChanged.Event:Connect(function(attackersCount, defendersCount)
-			packets.partialStatusUpdate.sendToAll({
-				{
-					stateKey = "attackersCount",
-					stateValue = attackersCount,
-				},
-				{
-					stateKey = "defendersCount",
-					stateValue = defendersCount,
-				},
-			})
-		end)
-	)
-	table.insert(
-		module.terminalConnections,
-		terminal.events.pointsChanged.Event:Connect(function(attackerPoints, defenderPoints)
-			packets.partialStatusUpdate.sendToAll({
-				{
-					stateKey = "attackerPoints",
-					stateValue = attackerPoints,
-				},
-				{
-					stateKey = "defenderPoints",
-					stateValue = defenderPoints,
-				},
-			})
-		end)
-	)
-
-	table.insert(
-		module.terminalConnections,
-		terminal.events.captureProgressChanged.Event:Connect(function(captureProgress)
-			packets.partialStatusUpdate.sendToAll({
-				{
-					stateKey = "captureProgress",
-					stateValue = captureProgress,
-				},
-			})
-		end)
-	)
-	table.insert(
-		module.terminalConnections,
-		terminal.events.stateChanged.Event:Connect(function(state)
-			packets.partialStatusUpdate.sendToAll({
-				{
-					stateKey = "state",
-					stateValue = state,
-				},
-			})
-		end)
-	)
-	table.insert(
-		module.terminalConnections,
-		terminal.events.endEvent.Event:Connect(function(winner)
-			module.timeFrozen = true
-			module.started = false
-			module.updatePersistantConfig()
-			packets.terminalEvent.sendToAll({
-				eventName = "end",
-				data = winner,
-			})
+		terminal.events.partialUpdate.Event:Connect(function(updateData)
+			packets.partialStatusUpdate.sendToAll(updateData)
+			for _, obj in pairs(updateData) do
+				module.state[obj.stateKey] = obj.stateValue
+			end
 		end)
 	)
 
@@ -484,6 +429,16 @@ function module:LoadTerminal(moduleScript: ModuleScript)
 		end)
 	)
 
+	terminal.events.endEvent.Event:Connect(function(winner)
+		module.timeFrozen = true
+		module.started = false
+		module.updatePersistantConfig()
+		packets.terminalEvent.sendToAll({
+			eventName = "end",
+			data = winner,
+		})
+	end)
+
 	local s = 0
 	table.insert(
 		module.terminalConnections,
@@ -491,13 +446,15 @@ function module:LoadTerminal(moduleScript: ModuleScript)
 			s = s + deltaTime
 			if s >= 1 / module.config.terminalTickRate then
 				s = 0
-				task.spawn(function()
-					module.terminal.timeLeft = module.endTime - workspace:GetServerTimeNow()
-					module.terminal:Tick(module.config.terminalTickRate)
-					for _, f in pairs(module.tickCallbacks) do
-						pcall(f)
-					end
-				end)
+				if module.started then
+					task.spawn(function()
+						module.terminal.timeLeft = module.endTime - workspace:GetServerTimeNow()
+						module.terminal:Tick(module.config.terminalTickRate)
+						for _, f in pairs(module.tickCallbacks) do
+							pcall(f)
+						end
+					end)
+				end
 			end
 		end)
 	)

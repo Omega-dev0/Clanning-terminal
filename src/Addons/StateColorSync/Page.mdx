@@ -1,0 +1,35 @@
+# State color sync
+
+:::note[Metadata]
+	Name: State color sync <br/>
+	Description: Synchronizes instances color to the terminal's current state <br/>
+	Version: v1.1 <br/>
+	Author: Omega77073 <br/>
+	Compatibility: >=1.2.0 <br/>
+:::
+
+
+Changes color of instances based on the terminal's current state (e.g. `Attackers`, `Defenders`, etc.).
+
+Supported instance types:
+- BasePart
+- MeshPart
+- Decal
+- Texture
+- ParticleEmitter
+- PointLight
+- SpotLight
+- SurfaceLight
+- Beam
+
+<details>
+	<summary>Installation</summary>
+	
+    1. Get the [model]("https://create.roblox.com/store/asset/112231468759111")
+    2. Place the model in `Terminal > Addons`
+    3. Add instances where all children will be colored by adding an `ObjectValue` to `Addon > Configuration`
+	4. (Modify the colors by editing attributes of `Addon > Configuration`)
+    5. Load the addon in the server file using `wrapper:AddAddon(script.Parent.Addons.StateColorSync)`
+</details>
+
+

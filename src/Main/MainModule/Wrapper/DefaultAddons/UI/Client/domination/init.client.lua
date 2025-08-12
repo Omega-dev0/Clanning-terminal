@@ -19,28 +19,16 @@ local function updateSettings()
 end
 
 local state = {
-	captureProgress = 0, -- -100 to 100
 	attackerPoints = 0,
 	defenderPoints = 0,
-	attackersCount = 0,
-	defendersCount = 0,
-	state = "locked", -- "neutral", "locked", "attackers", "defenders"
+
+	states = {},
+	captureProgresses = {},
+	playerCounts = {},
 }
 function updateState()
-	local isContested = (state.attackersCount > 0 and state.defendersCount > 0)
-	controller:updateState(
-		state.attackersCount,
-		state.defendersCount,
-		state.attackerPoints / cfg.terminal.maxPoints,
-		state.defenderPoints / cfg.terminal.maxPoints,
-		state.attackerPoints,
-		state.defenderPoints,
-		isContested,
-		state.state,
-		cfg.terminal.maxPoints,
-		state.captureProgress / cfg.terminal.captureTime
-	)
-	controller:toggleLock(state.state == "locked")
+	controller:updateState(state, cfg)
+	controller:toggleLock(state.states)
 end
 packets.statusUpdate.listen(function(data)
 	for key, value in pairs(data) do
