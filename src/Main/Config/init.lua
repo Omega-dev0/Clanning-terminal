@@ -1,7 +1,3 @@
----- Core configuration
-AUTO_UPDATE_CORE = false
-MAIN_MODULE_ID = ""
-
 ---
 TIME_LIMIT = 60 -- Minutes
 

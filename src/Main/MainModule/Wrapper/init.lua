@@ -66,10 +66,7 @@ else
 	end
 end
 
-local configModule = script.Parent.Parent.Config
-local config = require(configModule)
-configModule.Name = "OmegasTerminalConfig"
-configModule.Parent = game.ReplicatedStorage
+local config = require(game.ReplicatedStorage:FindFirstChild("OmegasTerminalConfig"))
 
 local module = {}
 module.controls = {}

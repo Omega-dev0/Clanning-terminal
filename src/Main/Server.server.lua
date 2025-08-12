@@ -1,13 +1,12 @@
 --━━━━━━━━━━━━━━━━ INITIALIZATION ━━━━━━━━━━━━━━━━--
 
-local config = require(script.Parent.Config)
+local configInstance = script.Parent.Config
+configInstance.Name = "OmegasTerminalConfig"
+configInstance.Parent = game.ReplicatedStorage
 
-local mainModule
-if config.autoUpdateEnabled then
-	mainModule = require(config.moduleId)
-else
-	mainModule = require(script.Parent.MainModule)
-end
+local config = require(configInstance)
+
+mainModule = require(script.Parent.MainModule)
 
 mainModule.checkCompatibility(config.configVersion)
 local wrapper = mainModule.wrapper
