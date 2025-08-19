@@ -16,7 +16,7 @@ print(`USING OMEGA'S TERMINAL v{mainModule.version}`)
 
 wrapper.Init()
 
-wrapper:LoadTerminal(script.Parent.Parent.Terminals.Domination)
+wrapper:LoadTerminal(script.Parent.Parent.Terminals.Tug)
 
 wrapper:AddAddon(wrapper.defaultAddons.Panel)
 wrapper:AddAddon(wrapper.defaultAddons.UI)

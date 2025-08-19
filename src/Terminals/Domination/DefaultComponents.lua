@@ -3,10 +3,18 @@ local components = {}
 type terminalState = "locked" | "neutral" | "attackers" | "defenders"
 type terminal = any
 
---- Updates the attacker and defender points for a terminal based on its current state and configuration.
--- @param terminal table: The terminal object.
--- @param tickRate number: The rate at which points are updated (ticks per second).
--- @return table: A table containing the updated attackerPoints and defenderPoints.
+--[[
+	Updates the attacker and defender points for a terminal based on the state of its subterminals.
+
+	@param terminal table: The terminal object containing current points, configuration, and subterminals.
+	@param tickRate number: The rate at which points are updated (ticks per second).
+	@return table: A table containing the updated attackerPoints and defenderPoints.
+
+	The function iterates through all subterminals of the given terminal. For each subterminal:
+	  - If its state is "attackers", attacker points are increased and defender points may be rolled back.
+	  - If its state is "defenders", defender points are increased and attacker points may be rolled back.
+	Points are clamped between 0 and the configured maximum.
+]]
 function components.updatePoints(
 	terminal: terminal,
 	tickRate: number
@@ -47,11 +55,22 @@ function components.updatePoints(
 	}
 end
 
---- Calculates the number of attackers and defenders currently present in the terminal's zone.
--- @param terminal The terminal object.
--- @return A table containing:
---   - AttackersCount (number): The count of players on the attacker team.
---   - DefendersCount (number): The count of players on the defender team.
+--[[
+	Calculates and returns the number of attackers and defenders currently present in a specified zone.
+
+	@param terminal terminal: The terminal object containing configuration and team information.
+	@param subterminal any: The subterminal object, used to identify the specific zone.
+	@param tickRate number: The tick rate used to increment the "TimeOnObjective" attribute for each player.
+
+	@return { attackesCount: number, defendersCount: number }
+		A table containing the count of attackers and defenders in the zone:
+			- attackersCount: Number of players on the attackers team in the zone.
+			- defendersCount: Number of players on the defenders team in the zone.
+
+	Notes:
+	- Only players with a valid character, humanoid, and positive health are counted.
+	- Team membership is determined by comparing the player's Team property to the configured attackers and defenders teams.
+]]
 function components.getPlayerCount(
 	terminal: terminal,
 	subterminal: any,
@@ -85,9 +104,12 @@ function components.getPlayerCount(
 	}
 end
 
---- Computes and returns the current state of the terminal based on its properties.
--- @param terminal The terminal object.
--- @return terminalState The computed state of the terminal ("locked", "attackers", "defenders", or "neutral").
+--- Computes and returns the current state of a subterminal within a domination terminal.
+-- The state can be "locked", "attackers", "defenders", or "neutral" based on the subterminal's
+-- capture progress and configuration.
+-- @param terminal table The terminal object containing configuration data.
+-- @param subterminal table The subterminal object with state and capture progress information.
+-- @return string The computed state: "locked", "attackers", "defenders", or "neutral".
 function components.computeState(terminal: terminal, subterminal): terminalState
 	if subterminal.state == "locked" then
 		return "locked"
@@ -110,10 +132,16 @@ function components.computeState(terminal: terminal, subterminal): terminalState
 	end
 end
 
---- Updates the capture progress of a terminal.
--- @param terminal table Terminal object.
--- @param tickRate number The rate at which progress is updated per tick.
--- @return number The updated capture progress.
+--- Updates the capture progress of a subterminal based on the number of attackers and defenders.
+--
+-- The function increments or decrements the capture progress depending on the presence of attackers or defenders.
+-- If both are absent and `uncaptureIfEmpty` is enabled in the terminal's config, the progress will decay towards zero.
+-- The progress is clamped between `-captureTime` and `captureTime` as defined in the terminal's config.
+--
+-- @param terminal table The terminal object containing configuration settings.
+-- @param subterminal table The subterminal object with current capture progress and player counts.
+-- @param tickRate number The rate at which the capture progress should be updated (ticks per second).
+-- @return number The updated capture progress value.
 function components.updateCaptureProgress(terminal: terminal, subterminal: any, tickRate: number): number
 	local newCaptureProgress = subterminal.captureProgress
 	local attackersCount, defendersCount = subterminal.attackersCount, subterminal.defendersCount
@@ -144,12 +172,10 @@ function components.updateCaptureProgress(terminal: terminal, subterminal: any, 
 	return newCaptureProgress
 end
 
---- Determines the winner.
--- @param terminal object.
--- @return "attackers" if attackers have won,
---         "defenders" if defenders have won,
---         "draw" if it's a draw,
---         nil if no side has won yet.
+--- Determines the winner of the domination terminal game based on current points and time left.
+-- @param terminal table The terminal object containing attackerPoints, defenderPoints, config.maxPoints, and timeLeft.
+-- @return "attackers"|"defenders"|"draw"|nil Returns "attackers" if attackers reach max points, "defenders" if defenders reach max points,
+-- or if time runs out and one side has more points. Returns "draw" if time runs out and points are equal. Returns nil if there is no winner yet.
 function components.getWinner(terminal): "attackers" | "defenders" | "draw" | nil
 	if terminal.attackerPoints >= terminal.config.maxPoints then
 		return "attackers"

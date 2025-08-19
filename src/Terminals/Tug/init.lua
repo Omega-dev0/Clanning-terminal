@@ -14,7 +14,6 @@ function newBindableEvent(name: string)
 end
 
 function fetchConfig()
-	local basicZones = require(game.ReplicatedStorage:WaitForChild("Libraries"):WaitForChild("basicZones"))
 	local configInstance = script.Configuration
 	local defaultConfigInstance = configInstance["Default configuration values"]
 
@@ -37,6 +36,8 @@ function fetchConfig()
 		zoneRadius = defaultConfigInstance:GetAttribute("zone_radius"),
 		zoneHeight = defaultConfigInstance:GetAttribute("zone_height"),
 
+		defendersAdvantage = defaultConfigInstance:GetAttribute("defenders_advantage"),
+
 		axisConfig = defaultConfigInstance:GetAttribute("axis_config"), -- "axis1, axis2, axis1+2"
 	}
 
@@ -47,18 +48,76 @@ end
 ------ CONTROLS ---------
 
 function terminalFunctions:Lock()
-	self.state = "locked"
-	self.events.stateChanged:Fire(self.state)
+	local newStates = {}
+	for terminalName, terminal in pairs(self.terminals) do
+		terminal.state = "locked"
+		newStates[terminalName] = terminal.state
+	end
+	self.events.stateChanged:Fire(newStates)
+	self.events.partialUpdate:Fire({
+		{ stateKey = "states", stateValue = newStates },
+	})
 end
 
 function terminalFunctions:Unlock()
-	self.state = "neutral"
-	self.events.stateChanged:Fire(self.state)
+	local newStates = {}
+	for terminalName, terminal in pairs(self.terminals) do
+		terminal.state = "neutral"
+		newStates[terminalName] = terminal.state
+	end
+	self.events.stateChanged:Fire(newStates)
+	self.events.partialUpdate:Fire({
+		{ stateKey = "states", stateValue = newStates },
+	})
 end
 
-function terminalFunctions:AddProgress(team, progress, axisNumber) end
+function terminalFunctions:AddProgress(team, progress)
+	local newProgresses = {}
+	if team == "defenders" then
+		for terminalName, terminal in pairs(self.terminals) do
+			terminal.progress = math.clamp(terminal.progress - progress * 1, -1, 1)
+			newProgresses[terminalName] = terminal.progress
+		end
+	elseif team == "attackers" then
+		for terminalName, terminal in pairs(self.terminals) do
+			terminal.progress = math.clamp(terminal.progress + progress * 1, -1, 1)
+			newProgresses[terminalName] = terminal.progress
+		end
+	else
+		error("Invalid team: " .. tostring(team))
+	end
+	self.events.progressChanged:Fire(newProgresses)
+	self.events.partialUpdate:Fire({
+		{ stateKey = "captureProgress", stateValue = newProgresses },
+	})
+end
 
-function terminalFunctions:Reset() end
+function terminalFunctions:Reset()
+	self.attackerPoints = 0
+	self.defenderPoints = 0
+
+	local newProgress = {}
+	local newStates = {}
+	for terminalName, terminal in pairs(self.terminals) do
+		terminal.progress = 0
+		terminal.lastProgress = 0
+		terminal.state = "neutral"
+
+		newProgress[terminalName] = terminal.progress
+		newStates[terminalName] = terminal.state
+	end
+
+	self.events.pointsChanged:Fire(self.attackerPoints, self.defenderPoints)
+	self.events.stateChanged:Fire(newStates)
+	self.events.progressChanged:Fire(newProgress)
+
+	self.events.partialUpdate:Fire({
+		{ stateKey = "states", stateValue = newStates },
+		{ stateKey = "attackerPoints", stateValue = self.attackerPoints },
+		{ stateKey = "defenderPoints", stateValue = self.defenderPoints },
+		{ stateKey = "captureProgress", stateValue = self.captureProgress },
+	})
+end
 
 function terminalFunctions:UpdateConfig(newConfig, player: Player?)
 	for key, value in pairs(newConfig) do
@@ -78,22 +137,129 @@ function terminalFunctions:UpdateConfig(newConfig, player: Player?)
 end
 
 -------- TERMINAL ------
+function terminalFunctions:_updatePlayerCount(tickRate: number)
+	local newCounts = {}
+	local count = 0
+	for terminalName, terminal in pairs(self.terminals) do
+		local newCount = self.components.getPlayerCount(self, terminal, tickRate)
+		if newCount.attackersCount ~= terminal.attackersCount or newCount.defendersCount ~= terminal.defendersCount then
+			terminal.attackersCount = newCount.attackersCount
+			terminal.defendersCount = newCount.defendersCount
+			newCounts[terminalName] = {
+				attackersCount = terminal.attackersCount,
+				defendersCount = terminal.defendersCount,
+			}
+			count += 1
+		end
+	end
+	if count > 0 then
+		self.events.playerCountChanged:Fire(newCounts)
+	end
+	return newCounts, count
+end
 
-function terminalFunctions:Tick(tickRate: number) end
+function terminalFunctions:_updateRequiredProgress()
+	local requiredProgress = self.components.getRequiredProgress(self)
+	if requiredProgress ~= self.requiredProgress then
+		self.requiredProgress = requiredProgress
+	end
+end
+
+function terminalFunctions:_computeState()
+	local newStates = {}
+	local count = 0
+	for terminalName, terminal in pairs(self.terminals) do
+		local newState = self.components.computeState(self, terminal)
+		if newState ~= terminal.state then
+			terminal.state = newState
+			newStates[terminalName] = newState
+			count += 1
+		end
+	end
+	if count > 0 then
+		self.events.stateChanged:Fire(newStates)
+	end
+	return newStates, count
+end
+
+function terminalFunctions:_updateProgress(tickRate: number)
+	local newProgress = {}
+	local count = 0
+	for terminalName, terminal in pairs(self.terminals) do
+		local progress = self.components.updateProgress(self, terminal, tickRate)
+		if progress ~= terminal.progress then
+			terminal.progress = progress
+			newProgress[terminalName] = progress
+			count += 1
+		end
+	end
+	if count > 0 then
+		self.events.progressChanged:Fire(newProgress)
+	end
+	return newProgress, count
+end
+
+function terminalFunctions:_updateWinState()
+	local winner = self.components.getWinner(self)
+	if winner ~= nil then
+		self.events.endEvent:Fire(winner)
+		self:Lock()
+	end
+end
+
+function terminalFunctions:Tick(tickRate: number)
+	local lastState = {
+		attackersPoint = self.attackerPoints,
+		defendersPoint = self.defenderPoints,
+	}
+	local newCounts, nci = self:_updatePlayerCount(tickRate)
+	local newStates, ncs = self:_computeState()
+	if self.state == "locked" then
+		return
+	end
+
+	local newProgresses, ncp = self:_updateProgress(tickRate)
+	self:_updateRequiredProgress()
+
+	for terminalName, terminal in pairs(self.terminals) do
+		if math.abs(terminal.progress) > self.requiredProgress then
+			self.components.reachFinish(self, terminal, terminal.progress > 0 and "attackers" or "defenders")
+		end
+	end
+
+	self:_updateWinState()
+
+	local updateObject = {}
+	for key, value in pairs(lastState) do
+		if self[key] ~= value then
+			table.insert(updateObject, {
+				stateKey = key,
+				stateValue = self[key],
+			})
+		end
+	end
+	if nci > 0 then
+		table.insert(updateObject, {
+			stateKey = "playerCounts",
+			stateValue = newCounts,
+		})
+	end
+	if ncp > 0 then
+		table.insert(updateObject, {
+			stateKey = "Progresses",
+			stateValue = newProgresses,
+		})
+	end
+	if ncs > 0 then
+		table.insert(updateObject, {
+			stateKey = "states",
+			stateValue = newStates,
+		})
+	end
+end
 
 function terminalFunctions:updatePersistantConfig()
-	self.persistantConfigObject:SetAttribute(
-		"terminal_config",
-		game:GetService("HttpService"):JSONEncode({
-			maxPoints = self.config.maxPoints,
-			progressSpeed = self.config.progressSpeed,
-			additionalPlayerSpeed = self.config.additionalPlayerSpeed,
-			maxAdditionalPlayers = self.config.maxAdditionalPlayers,
-			zoneRadius = self.config.zoneRadius,
-			zoneHeight = self.config.zoneHeight,
-			axisConfig = self.config.axisConfig,
-		})
-	)
+	self.persistantConfigObject:SetAttribute("terminal_config", game:GetService("HttpService"):JSONEncode({}))
 end
 
 return function(wrapper)
@@ -102,15 +268,9 @@ return function(wrapper)
 
 		pointsChanged = newBindableEvent("pointsChanged"),
 
-		axis1 = {
-			progressChanged = newBindableEvent("axis1ProgressChanged"),
-			playerCountChanged = newBindableEvent("playerCountChanged"),
-		},
-
-		axis2 = {
-			progressChanged = newBindableEvent("axis2ProgressChanged"),
-			playerCountChanged = newBindableEvent("playerCountChanged"),
-		},
+		progressChanged = newBindableEvent("progressChanged"),
+		playerCountChanged = newBindableEvent("playerCountChanged"),
+		stateChanged = newBindableEvent("stateChanged"),
 
 		endEvent = newBindableEvent("endEvent"),
 		startEvent = newBindableEvent("startEvent"),
@@ -123,21 +283,46 @@ return function(wrapper)
 	terminal.timeLeft = math.huge
 	terminal.defenderPoints = 0
 	terminal.attackerPoints = 0
-	terminal.state = "locked"
 
 	terminal.config = fetchConfig()
 	terminal.config.attackersTeam = wrapper.config.attackers.team
 	terminal.config.defendersTeam = wrapper.config.defenders.team
 
-	terminal.captureProgress = 0
-	terminal.lastCaptureProgress = 0
-	terminal.attackersCount = 0
-	terminal.defendersCount = 0
-
-	terminal.terminalId = "default"
+	terminal.terminalId = "tug"
 	terminal.persistantConfigObject = wrapper.persistantConfig
 
+	terminal.requiredProgress = 1
+
 	terminal.components = require(script.DefaultComponents)
+
+	local basicZones = require(game.ReplicatedStorage:WaitForChild("Libraries"):WaitForChild("basicZones"))
+	terminal.terminals = {
+		axis1 = {
+			zone = basicZones.New(CFrame.new(terminal.config.axis1.midPoint), {
+				zoneShape = "Cylinder",
+				Radius = terminal.config.zoneRadius,
+				maxHeight = terminal.config.zoneHeight,
+			}),
+			progress = 0, -- [-1,1]
+			lastProgress = 0,
+			attackersCount = 0,
+			defendersCount = 0,
+			state = "neutral", -- "neutral", "locked", "attackers", "defenders"
+		},
+		axis2 = {
+			zone = basicZones.New(CFrame.new(terminal.config.axis2.midPoint), {
+				zoneShape = "Cylinder",
+				Radius = terminal.config.zoneRadius,
+				maxHeight = terminal.config.zoneHeight,
+			}),
+			progress = 0, -- [-1,1]
+			lastProgress = 0,
+			attackersCount = 0,
+			defendersCount = 0,
+			state = "neutral", -- "neutral", "locked", "attackers", "defenders"
+		},
+	}
+
 	terminal:updatePersistantConfig()
 	return {
 		terminal = terminal,

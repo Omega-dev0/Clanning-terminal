@@ -51,7 +51,7 @@
         "Name": "Default configuration values",
         "Attributes": {
           "max_points": { "Float64": 5 },
-          "progress_speed": { "Float64": 10 },
+          "progress_speed": { "Float64": 1 },
 
           "additional_player_speed": { "Float64": 0.01 },
           "max_additional_players": { "Float64": 10 },
@@ -59,7 +59,9 @@
           "zone_radius": { "Float64": 10 },
           "zone_height": { "Float64": 10 },
 
-          "axisConfig": { "String": "axis1+2" }
+          "axisConfig": { "String": "axis1+2" },
+
+          "defenders_advantage": { "Bool": true }
         }
       }
     }
