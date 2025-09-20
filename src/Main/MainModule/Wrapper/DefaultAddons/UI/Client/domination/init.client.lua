@@ -38,7 +38,13 @@ packets.statusUpdate.listen(function(data)
 end)
 packets.partialStatusUpdate.listen(function(data)
 	for _, value in data do
-		state[value.stateKey] = value.stateValue
+		if type(state[value.stateKey]) == "table" then
+			for key, v in pairs(value.stateValue) do
+				state[value.stateKey][key] = v
+			end
+		else
+			state[value.stateKey] = value.stateValue
+		end
 	end
 	updateState()
 end)

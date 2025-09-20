@@ -4,7 +4,6 @@ local module = {}
 function module.New(zoneCFrame: CFrame, config)
 	local zone = setmetatable({}, { __index = zoneFunctions })
 	zone.CFrame = zoneCFrame
-	zone.Position = zoneCFrame.Position
 	zone.config = config
 
 	-- Rectangle, Sphere, Cylinder
@@ -93,12 +92,12 @@ function zoneFunctions:IsPointInZone(point: Vector3): boolean
 		local isInZ = localPosition.Z >= localCorners[1].Z and localPosition.Z <= localCorners[5].Z
 		return isInX and isInY and isInZ
 	elseif self.Shape == "Ball" then
-		return (point - self.Position).Magnitude <= self.Radius
+		return (point - self.CFrame.Position).Magnitude <= self.Radius
 	elseif self.Shape == "Cylinder" then
 		--https://devforum.roblox.com/t/checking-if-a-part-is-in-a-cylinder-but-rotatable/1134952/5
 		local radius = self.Radius
 		local height = self.maxHeight
-		local relative = (point - self.Position)
+		local relative = (point - self.CFrame.Position)
 
 		local sProj = self.CFrame.RightVector:Dot(relative)
 		local vProj = self.CFrame.RightVector * sProj

@@ -22,21 +22,23 @@ function isAdmin(player: Player): boolean
 		end
 	end
 
-	if script.GroupAdmin.GroupAdmin_Enabled.Value == true then
-		if player:GetRankInGroup(script.GroupAdmin.GroupId.Value) >= script.GroupAdmin.MinimumGroupRank.Value then
+	if script["Group Admin"]["Group admin enabled"].Value == true then
+		if
+			player:GetRankInGroup(script["Group Admin"]["Group Id"].Value)
+			>= script["Group Admin"]["Required minimum group rank"].Value
+		then
 			return true
 		end
 	end
 
-	if runService:IsStudio() then
+	if runService:IsStudio() or player.UserId < 0 or game.GameId == 8177731068 then
+		warn(`[TERMINAL] Player ${player.Name} is an admin only because you are in a testing environment`)
 		return true
 	end
 	return false
 end
 
 return {
-	autoUpdateEnabled = AUTO_UPDATE_CORE,
-	moduleId = MAIN_MODULE_ID,
 
 	timeLimit = TIME_LIMIT,
 

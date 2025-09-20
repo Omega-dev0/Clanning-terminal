@@ -193,15 +193,14 @@ function module.Init()
 				module.config.attackers.name = module.config.attackers.name == "" and groupInfo.Name
 					or module.config.attackers.name
 			end
-
-			if module.config.defenders.groupId ~= "" then
-				if module.config.defenders.icon == "" or module.config.defenders.name == "" then
-					local groupInfo = groupService:GetGroupInfoAsync(module.config.defenders.groupId)
-					module.config.defenders.icon = module.config.defenders.icon == "" and groupInfo.EmblemUrl
-						or module.config.defenders.icon
-					module.config.defenders.name = module.config.defenders.name == "" and groupInfo.Name
-						or module.config.defenders.name
-				end
+		end
+		if module.config.defenders.groupId ~= "" then
+			if module.config.defenders.icon == "" or module.config.defenders.name == "" then
+				local groupInfo = groupService:GetGroupInfoAsync(module.config.defenders.groupId)
+				module.config.defenders.icon = module.config.defenders.icon == "" and groupInfo.EmblemUrl
+					or module.config.defenders.icon
+				module.config.defenders.name = module.config.defenders.name == "" and groupInfo.Name
+					or module.config.defenders.name
 			end
 		end
 	end)
@@ -442,9 +441,11 @@ function module:LoadTerminal(moduleScript: ModuleScript)
 		runService.Heartbeat:Connect(function(deltaTime)
 			s = s + deltaTime
 			if s >= 1 / module.config.terminalTickRate then
-				s = 0
 				if module.started then
 					task.spawn(function()
+						if module.timeFrozen then
+							module.endTime = module.endTime + s
+						end
 						module.terminal.timeLeft = module.endTime - workspace:GetServerTimeNow()
 						module.terminal:Tick(module.config.terminalTickRate)
 						for _, f in pairs(module.tickCallbacks) do
@@ -452,6 +453,7 @@ function module:LoadTerminal(moduleScript: ModuleScript)
 						end
 					end)
 				end
+				s = 0
 			end
 		end)
 	)

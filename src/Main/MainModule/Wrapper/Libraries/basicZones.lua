@@ -1,25 +1,9 @@
-
-
---[[
-   ___                           _____ _____ ___ _____ _____ 
-  /___\_ __ ___   ___  __ _  __ |___  |___  / _ \___  |___ / 
- //  // '_ ` _ \ / _ \/ _` |/ _` | / /   / / | | | / /  |_ \ 
-/ \_//| | | | | |  __/ (_| | (_| |/ /   / /| |_| |/ /  ___) |
-\___/ |_| |_| |_|\___|\__, |\__,_/_/   /_/  \___//_/  |____/ 
-                      |___/                                  
-Do not push modifications to this package!
-
-The content of this script and it's parent children are under the CC BY-SA license, except the Libraries folder.
-https://creativecommons.org/licenses/by-sa/4.0/
-
-]]
 local zoneFunctions = {}
 local module = {}
 
 function module.New(zoneCFrame: CFrame, config)
 	local zone = setmetatable({}, { __index = zoneFunctions })
 	zone.CFrame = zoneCFrame
-	zone.Position = zoneCFrame.Position
 	zone.config = config
 
 	-- Rectangle, Sphere, Cylinder
@@ -89,11 +73,11 @@ function zoneFunctions:GetPlayersInZone(): { Player }
 	local playersInZone = {}
 	for _, player in pairs(game.Players:GetPlayers()) do
 		if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            if(player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0) then
-			if self:IsPointInZone(player.Character.HumanoidRootPart.Position) then
-				table.insert(playersInZone, player)
+			if player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+				if self:IsPointInZone(player.Character.HumanoidRootPart.Position) then
+					table.insert(playersInZone, player)
+				end
 			end
-        end
 		end
 	end
 	return playersInZone
@@ -108,12 +92,12 @@ function zoneFunctions:IsPointInZone(point: Vector3): boolean
 		local isInZ = localPosition.Z >= localCorners[1].Z and localPosition.Z <= localCorners[5].Z
 		return isInX and isInY and isInZ
 	elseif self.Shape == "Ball" then
-		return (point - self.Position).Magnitude <= self.Radius
+		return (point - self.CFrame.Position).Magnitude <= self.Radius
 	elseif self.Shape == "Cylinder" then
-        --https://devforum.roblox.com/t/checking-if-a-part-is-in-a-cylinder-but-rotatable/1134952/5
+		--https://devforum.roblox.com/t/checking-if-a-part-is-in-a-cylinder-but-rotatable/1134952/5
 		local radius = self.Radius
 		local height = self.maxHeight
-		local relative = (point - self.Position)
+		local relative = (point - self.CFrame.Position)
 
 		local sProj = self.CFrame.RightVector:Dot(relative)
 		local vProj = self.CFrame.RightVector * sProj
