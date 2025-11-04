@@ -1,6 +1,6 @@
 local metadata = {
-	name = "Default Terminal",
-	description = "The default terminal for hardpoint, dualcap and rollback",
+	name = "Payload Terminal",
+	description = "The default terminal for payload game mode.",
 	version = "v1.1",
 	author = "Omega77073",
 	compatibility = ">=1.2.0",
@@ -18,27 +18,39 @@ function fetchConfig()
 	local configInstance = script.Configuration
 	local defaultConfigInstance = configInstance["Default configuration values"]
 
+	local payloadInstance = configInstance["Payload model"].Value
 	assert(
-		configInstance["Terminal volume"].Value,
-		"[TERMINAL] Terminal volume is not set ! Set the value in Terminal > Configuration > Terminal volume"
+		payloadInstance,
+		"[TERMINAL] Payload model is not set ! Set the value in Terminal > Configuration > Payload model"
 	)
-	if defaultConfigInstance:GetAttribute("capture_time") > 15 then
-		warn(
-			"[TERMINAL] Terminal capture time is very high, it takes "
-				.. defaultConfigInstance:GetAttribute("capture_time")
-				.. " seconds to capture the terminal, is this intended?"
-		)
-	end
+	assert(payloadInstance:IsA("Model"), "[TERMINAL] Payload model is not a Model ! Please set it to a Model instance.")
+	assert(
+		payloadInstance.PrimaryPart,
+		"[TERMINAL] Payload model has no PrimaryPart ! The primary part should be the capture zone of the payload !"
+	)
+
+	local zone = basicZones.fromPart(payloadInstance.PrimaryPart)
+
+	local waypointsFolder = configInstance:FindFirstChild("Waypoints folder")
+	assert(
+		waypointsFolder and waypointsFolder:IsA("Folder"),
+		"[TERMINAL] Waypoints folder is not set or is not a Folder ! Set the value in Terminal > Configuration > Waypoints folder"
+	)
+
+	local waypointsInstances = waypointsFolder:GetChildren()
+	assert(#waypointsInstances > 0, "[TERMINAL] No waypoints found in the waypoints folder !")
+
+	local waypoints = {}
+
+	for _, waypoint in ipairs(waypointsInstances) do
 
 	return {
-		zone = basicZones.fromPart(configInstance["Terminal volume"].Value),
+		attackersSpeed = defaultConfigInstance:GetAttribute("attackers_speed"),
+		defendersSpeed = defaultConfigInstance:GetAttribute("defenders_speed"),
+		rollbackCooldown = defaultConfigInstance:GetAttribute("rollback_cooldown"),
 
-		captureTime = defaultConfigInstance:GetAttribute("capture_time"),
-		maxPoints = defaultConfigInstance:GetAttribute("max_points"),
-		pointsPerSecond = defaultConfigInstance:GetAttribute("points_per_second"),
-		rollbackRate = defaultConfigInstance:GetAttribute("rollback_rate"),
-
-		uncaptureIfEmpty = defaultConfigInstance:GetAttribute("uncapture_if_empty"),
+		payloadModel = payloadInstance,
+		zone = zone,
 	}
 end
 
@@ -110,14 +122,13 @@ end
 
 -------- TERMINAL ------
 
-function terminalFunctions:_tickPoints(tickRate: number)
-	local newPoints = self.components.updatePoints(self, tickRate)
-	if newPoints.attackerPoints ~= self.attackerPoints or newPoints.defenderPoints ~= self.defenderPoints then
-		self.events.pointsChanged:Fire(newPoints.attackerPoints, newPoints.defenderPoints)
+function terminalFunctions:_updateProgress(tickRate: number)
+	local newProgress = self.components.updateProgress(self, tickRate)
+	if newProgress.progress ~= self.progress then
+		self.events.progressChanged:Fire(newProgress.progress)
 	end
 
-	self.attackerPoints = newPoints.attackerPoints
-	self.defenderPoints = newPoints.defenderPoints
+	self.progress = newProgress.progress
 end
 function terminalFunctions:_computeState()
 	local newState = self.components.computeState(self)
@@ -134,14 +145,6 @@ function terminalFunctions:_updatePlayerCount(tickRate: number)
 	self.attackersCount = newPlayerCount.attackersCount
 	self.defendersCount = newPlayerCount.defendersCount
 end
-function terminalFunctions:_updateCaptureProgress(tickRate: number)
-	local newCaptureProgress = self.components.updateCaptureProgress(self, tickRate)
-	if newCaptureProgress ~= self.captureProgress then
-		self.lastCaptureProgress = self.captureProgress
-		self.captureProgress = newCaptureProgress
-		self.events.captureProgressChanged:Fire(self.captureProgress, self.lastCaptureProgress)
-	end
-end
 function terminalFunctions:_updateWinState()
 	local winner = self.components.getWinner(self)
 	if winner ~= nil then
@@ -149,14 +152,16 @@ function terminalFunctions:_updateWinState()
 		self:Lock()
 	end
 end
+function terminalFunctions:_movePayload()
+	self.components.movePayloadModel(self)
+	self.zone:UpdateCFrame(self.config.payloadModel.PrimaryPart.CFrame)
+end
 
 function terminalFunctions:Tick(tickRate: number)
 	local lastState = {
 		attackersCount = self.attackersCount,
 		defendersCount = self.defendersCount,
-		attackerPoints = self.attackerPoints,
-		defenderPoints = self.defenderPoints,
-		captureProgress = self.captureProgress,
+		progress = self.progress,
 		state = self.state,
 	}
 	self:_updatePlayerCount(tickRate)
@@ -165,10 +170,9 @@ function terminalFunctions:Tick(tickRate: number)
 		return
 	end
 
-	self:_updateCaptureProgress(tickRate)
 	self:_computeState()
+	self:_updateProgress(tickRate)
 
-	self:_tickPoints(tickRate)
 	self:_updateWinState()
 
 	local updateObject = {}
@@ -190,11 +194,8 @@ function terminalFunctions:updatePersistantConfig()
 	self.persistantConfigObject:SetAttribute(
 		"terminal_config",
 		game:GetService("HttpService"):JSONEncode({
-			maxPoints = self.config.maxPoints,
-			pointsPerSecond = self.config.pointsPerSecond,
-			uncaptureIfEmpty = self.config.uncaptureIfEmpty,
-			captureTime = self.config.captureTime,
-			rollbackRate = self.config.rollbackRate,
+			forwardSpeed = self.config.attackers_speed,
+			backwardSpeed = self.config.defenders_speed,
 		})
 	)
 end
@@ -203,8 +204,7 @@ return function(wrapper)
 	local terminal = setmetatable({}, { __index = terminalFunctions })
 	terminal.events = {
 		playerCountChanged = newBindableEvent("playerCountChanged"),
-		pointsChanged = newBindableEvent("pointsChanged"),
-		captureProgressChanged = newBindableEvent("captureProgressChanged"),
+		progressChanged = newBindableEvent("progressChanged"),
 		stateChanged = newBindableEvent("stateChanged"),
 		endEvent = newBindableEvent("endEvent"),
 		startEvent = newBindableEvent("startEvent"),
@@ -214,20 +214,18 @@ return function(wrapper)
 	terminal.logEvent = wrapper.logEvent
 
 	terminal.timeLeft = math.huge
-	terminal.defenderPoints = 0
-	terminal.attackerPoints = 0
 	terminal.state = "locked"
+	terminal.progress = 0
 
 	terminal.config = fetchConfig()
 	terminal.config.attackersTeam = wrapper.config.attackers.team
 	terminal.config.defendersTeam = wrapper.config.defenders.team
 
-	terminal.captureProgress = 0
-	terminal.lastCaptureProgress = 0
 	terminal.attackersCount = 0
 	terminal.defendersCount = 0
+	terminal.lastMoved = os.clock()
 
-	terminal.terminalId = "default"
+	terminal.terminalId = "payload"
 	terminal.persistantConfigObject = wrapper.persistantConfig
 
 	terminal.components = require(script.DefaultComponents)

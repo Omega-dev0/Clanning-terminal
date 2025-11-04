@@ -8,7 +8,16 @@
     {
       "className": "ObjectValue",
       "properties": {
-        "Name": "Terminal volume"
+        "Name": "Payload model"
+      }
+    },
+    {
+      "className": "ObjectValue",
+      "properties": {
+        "Name": "Waypoints folder",
+        "Attributes": {
+          "Description": "Folder containing waypoints, waypoints should be parts with a 'next' instance attribute pointing to the next waypoint"
+        }
       }
     },
     {
@@ -16,11 +25,12 @@
       "properties": {
         "Name": "Default configuration values",
         "Attributes": {
-          "max_points": { "Float64": 100 },
-          "points_per_second": { "Float64": 1 },
-          "capture_time": { "Float64": 1 },
-          "rollback_rate": { "Float64": 0 },
-          "uncapture_if_empty": { "Bool": false }
+          "attackers_speed": { "Float64": 15 },
+          "defenders_speed": { "Float64": 5 },
+          "rollback_cooldown": { "Float64": 3 },
+
+          "spline_tension": { "Float64": 0 },
+          "spline_alpha": { "Float64": 0.5 }
         }
       }
     }

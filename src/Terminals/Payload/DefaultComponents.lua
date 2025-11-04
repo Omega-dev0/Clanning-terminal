@@ -3,46 +3,37 @@ local components = {}
 type terminalState = "locked" | "neutral" | "attackers" | "defenders"
 type terminal = any
 
---- Updates the attacker and defender points for a terminal based on its current state and configuration.
--- @param terminal table: The terminal object.
--- @param tickRate number: The rate at which points are updated (ticks per second).
--- @return table: A table containing the updated attackerPoints and defenderPoints.
-function components.updatePoints(
-	terminal: terminal,
-	tickRate: number
-): { attackerPoints: number, defenderPoints: number }
-	local newattackerPoints = terminal.attackerPoints
-	local newdefenderPoints = terminal.defenderPoints
+--- Updates the attacker and defender points based on the terminal's state and configuration.
+-- @param terminal The terminal object.
+-- @param tickRate The rate at which the terminal is updated.
+-- @return A table containing:
+
+function components.updateProgress(terminal: terminal, tickRate: number): { newProgress: number }
+	local newProgress = terminal.progress
 
 	if terminal.state == "attackers" then
-		newattackerPoints += terminal.config.pointsPerSecond / tickRate
-		if newdefenderPoints > 0 then
-			newdefenderPoints -= terminal.config.rollbackRate / tickRate
-		end
+		newProgress += terminal.config.attackersSpeed / tickRate
 	elseif terminal.state == "defenders" then
-		newdefenderPoints += terminal.config.pointsPerSecond / tickRate
-		if newattackerPoints > 0 then
-			newattackerPoints -= terminal.config.rollbackRate / tickRate
+		if (os.clock() - terminal.lastMoved) >= terminal.config.rollbackCooldown then
+			newProgress -= terminal.config.defendersSpeed / tickRate
 		end
 	end
 
-	if newattackerPoints < 0 then
-		newattackerPoints = 0
+	if newProgress < 0 then
+		newProgress = 0
 	end
-	if newdefenderPoints < 0 then
-		newdefenderPoints = 0
-	end
-	if newattackerPoints > terminal.config.maxPoints then
-		newattackerPoints = terminal.config.maxPoints
-	end
-	if newdefenderPoints > terminal.config.maxPoints then
-		newdefenderPoints = terminal.config.maxPoints
+
+	if newProgress > 100 then
+		newProgress = 100
 	end
 
 	return {
-		attackerPoints = newattackerPoints,
-		defenderPoints = newdefenderPoints,
+		progress = newProgress,
 	}
+end
+
+function components.movePayloadModel(terminal: terminal)
+	-- Move payload
 end
 
 --- Calculates the number of attackers and defenders currently present in the terminal's zone.
@@ -89,53 +80,13 @@ function components.computeState(terminal: terminal): terminalState
 		return "locked"
 	end
 
-	if terminal.captureProgress >= terminal.config.captureTime then
+	if terminal.attackersCount > 0 and terminal.defendersCount == 0 then
 		return "attackers"
-	elseif terminal.captureProgress <= -terminal.config.captureTime then
+	elseif terminal.defendersCount > 0 and terminal.attackersCount == 0 then
 		return "defenders"
 	else
-		if terminal.captureProgress > 0 and terminal.lastCaptureProgress - terminal.captureProgress > 0 then
-			return "attackers"
-		elseif terminal.captureProgress < 0 and terminal.lastCaptureProgress - terminal.captureProgress < 0 then
-			return "defenders"
-		else
-			return "neutral"
-		end
+		return "neutral"
 	end
-end
-
---- Updates the capture progress of a terminal.
--- @param terminal table Terminal object.
--- @param tickRate number The rate at which progress is updated per tick.
--- @return number The updated capture progress.
-function components.updateCaptureProgress(terminal: terminal, tickRate: number): number
-	local newCaptureProgress = terminal.captureProgress
-	local attackersCount, defendersCount = terminal.attackersCount, terminal.defendersCount
-
-	if attackersCount > 0 and defendersCount == 0 then
-		newCaptureProgress += 1 / tickRate
-	elseif defendersCount > 0 and attackersCount == 0 then
-		newCaptureProgress -= 1 / tickRate
-	elseif attackersCount == 0 and defendersCount == 0 then
-		if terminal.config.uncaptureIfEmpty == true then
-			if math.abs(newCaptureProgress) < 0.1 then
-				newCaptureProgress = 0
-			end
-
-			if newCaptureProgress > 0 then
-				newCaptureProgress -= (1 / tickRate)
-			elseif newCaptureProgress < 0 then
-				newCaptureProgress += (1 / tickRate)
-			end
-		end
-	end
-	if newCaptureProgress > terminal.config.captureTime then
-		newCaptureProgress = terminal.config.captureTime
-	elseif newCaptureProgress < -terminal.config.captureTime then
-		newCaptureProgress = -terminal.config.captureTime
-	end
-
-	return newCaptureProgress
 end
 
 --- Determines the winner.
@@ -145,26 +96,12 @@ end
 --         "draw" if it's a draw,
 --         nil if no side has won yet.
 function components.getWinner(terminal): "attackers" | "defenders" | "draw" | nil
-	if terminal.attackerPoints >= terminal.config.maxPoints then
+	if terminal.progress >= 100 then
 		return "attackers"
-	elseif terminal.defenderPoints >= terminal.config.maxPoints then
-		return "defenders"
 	end
 
 	if terminal.timeLeft <= 0 then
-		if terminal.attackerPoints > terminal.defenderPoints then
-			return "attackers"
-		elseif terminal.defenderPoints > terminal.attackerPoints then
-			return "defenders"
-		else
-			if terminal.captureProgress > 0 then
-				return "attackers"
-			elseif terminal.captureProgress < 0 then
-				return "defenders"
-			else
-				return "draw"
-			end
-		end
+		return "defenders"
 	end
 
 	return nil

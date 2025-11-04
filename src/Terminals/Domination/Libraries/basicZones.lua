@@ -108,4 +108,16 @@ function zoneFunctions:IsPointInZone(point: Vector3): boolean
 	return false
 end
 
+function zoneFunctions:UpdateCFrame(newCFrame: CFrame)
+	self.CFrame = newCFrame
+	if self.Shape == "Block" then
+		-- Recalculate local space corners
+		local newLocalCorners = {}
+		for _, corner in pairs(self.config.corners) do
+			table.insert(newLocalCorners, self.CFrame:ToObjectSpace(CFrame.new(corner)).Position)
+		end
+		self.localSpaceCorners = newLocalCorners
+	end
+end
+
 return module

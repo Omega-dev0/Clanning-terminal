@@ -16,10 +16,9 @@ print(`USING OMEGA'S TERMINAL v{mainModule.version}`)
 
 wrapper.Init()
 
-wrapper:LoadTerminal(script.Parent.Parent.Terminals.Tug)
-wrapper:AddAddon(script.Parent.Parent.Addons["Tug-UI"])
-wrapper:AddAddon(script.Parent.Parent.Addons["Tug-Panel"])
-wrapper:AddAddon(script.Parent.Parent.Addons["Tug-Visuals"])
+wrapper:LoadTerminal(script.Parent.Parent.Terminals.Default)
+wrapper:AddAddon(wrapper.defaultAddons.UI)
+wrapper:AddAddon(wrapper.defaultAddons.Panel)
 wrapper:AddAddon(wrapper.defaultAddons.StartSequence)
 wrapper:AddAddon(wrapper.defaultAddons.EndSequence)
 
