@@ -11,20 +11,46 @@ type terminal = any
 function components.updateProgress(terminal: terminal, tickRate: number): { newProgress: number }
 	local newProgress = terminal.progress
 
-	if terminal.state == "attackers" then
-		newProgress += terminal.config.attackersSpeed / tickRate
-	elseif terminal.state == "defenders" then
-		if (os.clock() - terminal.lastMoved) >= terminal.config.rollbackCooldown then
-			newProgress -= terminal.config.defendersSpeed / tickRate
+	if terminal.locks.targetProgress ~= nil and math.abs(terminal.locks.targetProgress - newProgress) < 0.01 then
+		terminal.locks.targetProgress = nil
+	end
+
+	if terminal.locks.targetProgress ~= nil then
+		if newProgress < terminal.locks.targetProgress then
+			newProgress += math.min(
+				((terminal.config.attackersSpeed / terminal.config.pathLength) / tickRate) * 100,
+				terminal.locks.targetProgress - newProgress
+			)
+
+			if newProgress > terminal.locks.targetProgress then
+				terminal.locks.targetProgress = nil
+			end
+		elseif newProgress > terminal.locks.targetProgress then
+			newProgress -= math.min(
+				((terminal.config.defendersSpeed / terminal.config.pathLength) / tickRate) * 100,
+				newProgress - terminal.locks.targetProgress
+			)
+
+			if newProgress < terminal.locks.targetProgress then
+				terminal.locks.targetProgress = nil
+			end
+		end
+	else
+		if terminal.state == "attackers" then
+			newProgress += ((terminal.config.attackersSpeed / terminal.config.pathLength) / tickRate) * 100
+		else
+			if (os.clock() - terminal.lastMoved) >= tonumber(terminal.config.rollbackCooldown) then
+				newProgress -= ((terminal.config.defendersSpeed / terminal.config.pathLength) / tickRate) * 100
+			end
 		end
 	end
 
-	if newProgress < 0 then
-		newProgress = 0
+	if newProgress < terminal.locks.minimumProgress then
+		newProgress = terminal.locks.minimumProgress
 	end
 
-	if newProgress > 100 then
-		newProgress = 100
+	if newProgress > terminal.locks.maximumProgress then
+		newProgress = terminal.locks.maximumProgress
 	end
 
 	return {
@@ -32,8 +58,8 @@ function components.updateProgress(terminal: terminal, tickRate: number): { newP
 	}
 end
 
-function components.movePayloadModel(terminal: terminal)
-	-- Move payload
+function components.movePayloadModel(terminal: terminal, newCFrame: CFrame)
+	terminal.config.payloadModel:SetPrimaryPartCFrame(newCFrame)
 end
 
 --- Calculates the number of attackers and defenders currently present in the terminal's zone.
@@ -105,6 +131,11 @@ function components.getWinner(terminal): "attackers" | "defenders" | "draw" | ni
 	end
 
 	return nil
+end
+
+function components.activateWaypoint(terminal: terminal, waypointIndex: number)
+	local waypoint = terminal.config.waypointsInstances[waypointIndex]
+	-- Could do something there aswell
 end
 
 return components

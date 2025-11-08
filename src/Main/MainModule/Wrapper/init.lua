@@ -326,6 +326,7 @@ function module.controls:Start(player: Player, immediate: boolean?)
 		warn("Terminal is already started.")
 		return
 	end
+	module.terminal:Reset()
 	module.started = true
 	module.timeFrozen = false
 	module.startTime = workspace:GetServerTimeNow()
@@ -390,6 +391,7 @@ function module:AddTickCallback(f: () -> nil)
 end
 
 function module:LoadTerminal(moduleScript: ModuleScript)
+	print("[TERMINAL] Loading terminal: " .. moduleScript.Name)
 	local terminalModule = require(moduleScript)
 	local data = terminalModule(self)
 	local terminal, metadata, libraries = data.terminal, data.metadata, data.libraries

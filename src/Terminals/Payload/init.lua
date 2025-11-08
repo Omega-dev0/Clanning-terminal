@@ -1,3 +1,4 @@
+local HttpService = game:GetService("HttpService")
 local metadata = {
 	name = "Payload Terminal",
 	description = "The default terminal for payload game mode.",
@@ -14,7 +15,8 @@ function newBindableEvent(name: string)
 end
 
 function fetchConfig()
-	local basicZones = require(game.ReplicatedStorage:WaitForChild("Libraries"):WaitForChild("basicZones"))
+	local basicZones = require(script:WaitForChild("Libraries"):WaitForChild("basicZones"))
+	local catRom = require(script:WaitForChild("Libraries"):WaitForChild("CatRom"))
 	local configInstance = script.Configuration
 	local defaultConfigInstance = configInstance["Default configuration values"]
 
@@ -31,26 +33,66 @@ function fetchConfig()
 
 	local zone = basicZones.fromPart(payloadInstance.PrimaryPart)
 
-	local waypointsFolder = configInstance:FindFirstChild("Waypoints folder")
+	local waypointsFolder = configInstance:FindFirstChild("Waypoints folder").Value
 	assert(
 		waypointsFolder and waypointsFolder:IsA("Folder"),
 		"[TERMINAL] Waypoints folder is not set or is not a Folder ! Set the value in Terminal > Configuration > Waypoints folder"
+	)
+
+	assert(
+		waypointsFolder:FindFirstChild("START"),
+		"[TERMINAL] No START waypoint found in the waypoints folder ! There should be a waypoint named 'START' to indicate the starting point of the payload."
 	)
 
 	local waypointsInstances = waypointsFolder:GetChildren()
 	assert(#waypointsInstances > 0, "[TERMINAL] No waypoints found in the waypoints folder !")
 
 	local waypoints = {}
+	local waypointsI = {}
+	local function processWaypoint(waypointInstance)
+		assert(
+			waypointInstance:IsA("BasePart"),
+			"[TERMINAL] Waypoint "
+				.. waypointInstance.Name
+				.. " is not a BasePart ! All waypoints should be BasePart instances."
+		)
 
-	for _, waypoint in ipairs(waypointsInstances) do
+		if waypointInstance.Name == "END" then
+			table.insert(waypoints, waypointInstance.CFrame)
+			return
+		end
+
+		assert(
+			(waypointInstance:FindFirstChild("Next") and waypointInstance.Next:IsA("ObjectValue")),
+			"[TERMINAL] Waypoint "
+				.. waypointInstance.Name
+				.. " has no 'next' attribute ! Each waypoint should have an ObjectValue named 'next' pointing to the next waypoint. If its the last waypoint, name it 'END'."
+		)
+		table.insert(waypoints, waypointInstance.CFrame)
+		table.insert(waypointsI, waypointInstance)
+		local nextWaypoint = waypointInstance.Next.Value
+		processWaypoint(nextWaypoint)
+	end
+
+	processWaypoint(waypointsFolder.START)
+
+	local splineTension = defaultConfigInstance:GetAttribute("spline_tension")
+	local splineAlpha = defaultConfigInstance:GetAttribute("spline_alpha")
+
+	local spline = catRom.new(waypoints, splineAlpha, splineTension)
+	spline:PrecomputeUnitSpeedData()
 
 	return {
 		attackersSpeed = defaultConfigInstance:GetAttribute("attackers_speed"),
 		defendersSpeed = defaultConfigInstance:GetAttribute("defenders_speed"),
-		rollbackCooldown = defaultConfigInstance:GetAttribute("rollback_cooldown"),
+		rollbackCooldown = tonumber(defaultConfigInstance:GetAttribute("rollback_cooldown")),
 
 		payloadModel = payloadInstance,
 		zone = zone,
+		spline = spline,
+		pathLength = spline:SolveLength(0, 1),
+		waypoints = waypoints,
+		waypointsInstances = waypointsI,
 	}
 end
 
@@ -74,33 +116,40 @@ end
 
 function terminalFunctions:AddProgress(team, progress)
 	if team == "defenders" then
-		self.defenderPoints = self.defenderPoints + progress * self.config.maxPoints
+		progress = -progress
 	elseif team == "attackers" then
-		self.attackerPoints = self.attackerPoints + progress * self.config.maxPoints
+		-- progress is positive
 	else
 		error("Invalid team: " .. tostring(team))
 	end
-	self.events.pointsChanged:Fire(self.defenderPoints, self.attackerPoints)
+
+	self.progress += progress
+	if self.progress < 0 then
+		self.progress = 0
+	end
+	if self.progress > 100 then
+		self.progress = 100
+	end
+
+	self.events.progressChanged:Fire(self.progress)
 	self.events.partialUpdate:Fire({
-		{ stateKey = "attackerPoints", stateValue = self.attackerPoints },
-		{ stateKey = "defenderPoints", stateValue = self.defenderPoints },
+		{ stateKey = "progress", stateValue = self.progress },
 	})
+	self:_movePayload()
 end
 
 function terminalFunctions:Reset()
-	self.attackerPoints = 0
-	self.defenderPoints = 0
-	self.captureProgress = 0
-	self.events.pointsChanged:Fire(self.attackerPoints, self.defenderPoints)
+	self.progress = 0
+	self.events.progressChanged:Fire(self.progress)
 	self.state = "locked"
 	self.events.stateChanged:Fire(self.state)
 
 	self.events.partialUpdate:Fire({
 		{ stateKey = "state", stateValue = self.state },
-		{ stateKey = "attackerPoints", stateValue = self.attackerPoints },
-		{ stateKey = "defenderPoints", stateValue = self.defenderPoints },
-		{ stateKey = "captureProgress", stateValue = self.captureProgress },
+		{ stateKey = "progress", stateValue = self.progress },
 	})
+
+	self:_movePayload()
 end
 
 function terminalFunctions:UpdateConfig(newConfig, player: Player?)
@@ -153,8 +202,95 @@ function terminalFunctions:_updateWinState()
 	end
 end
 function terminalFunctions:_movePayload()
-	self.components.movePayloadModel(self)
-	self.zone:UpdateCFrame(self.config.payloadModel.PrimaryPart.CFrame)
+	local newCFrame = self.config.spline:SolveCFrameLookAlong(self.progress / 100)
+	self.components.movePayloadModel(self, newCFrame)
+	self.config.zone:UpdateCFrame(self.config.payloadModel.PrimaryPart.CFrame)
+
+	local lastWaypointIndex = self.currentWaypointIndex
+	for i = 1, #self.config.waypoints - 1 do
+		local distance = (self.config.payloadModel.PrimaryPart.Position - self.config.waypoints[i].Position).Magnitude
+		if distance < 0.5 then
+			self.currentWaypointIndex = i
+			break
+		end
+	end
+
+	if self.currentWaypointIndex ~= lastWaypointIndex then
+		self:_activateWaypoint()
+	end
+end
+
+function terminalFunctions:_activateWaypoint()
+	self.components.activateWaypoint(self, self.currentWaypointIndex)
+	local waypoint = self.config.waypointsInstances[self.currentWaypointIndex]
+
+	if waypoint and waypoint:FindFirstChildOfClass("BindableEvent") then
+		waypoint:FindFirstChildOfClass("BindableEvent"):Fire({
+			waypointIndex = self.currentWaypointIndex,
+			distanceToWaypoint = (self.config.payloadModel.PrimaryPart.Position - waypoint.Position).Magnitude,
+
+			forwardSpeed = self.config.attackersSpeed,
+			backwardSpeed = self.config.defendersSpeed,
+
+			progress = self.progress,
+			state = self.state,
+
+			timeLeft = self.timeLeft,
+		})
+	end
+
+	if waypoint and waypoint:FindFirstChild("Instructions") and waypoint.Instructions:IsA("StringValue") then
+		local success, err = pcall(function()
+			local instructions = HttpService:JSONDecode(waypoint.Instructions.Value)
+			for _, instruction in pairs(instructions) do
+				local action, value = instruction.action, instruction.value
+
+				--[[
+					Supported actions:
+					- wait --> v:seconds (number): waits for the specified number of seconds
+					- lock --> locks the terminal
+					- moveProgress --> value is progress to move (positive or negative)
+					- moveDistance --> value is distance in studs to move (positive or negative)
+					- moveTime --> value is time in seconds to move forward (only positive)
+					- setAsMinimumProgress --> sets the current progress as the minimum progress (prevents rollback beyond this point)
+				
+					Eg. [{"action":"wait","value":"5"},{"action":"moveDistance","value":40}]
+					]]
+
+				if action == "wait" then
+					local oldMaximumProgress, oldMinimumProgress = self.locks.maximumProgress, self.locks.minimumProgress
+					self.locks.maximumProgress = self.progress
+					task.wait(tonumber(value))
+					self.locks.maximumProgress = oldMaximumProgress
+					self.locks.minimumProgress = oldMinimumProgress
+				elseif action == "lock" then
+					self:Lock()
+				elseif action == "moveProgress" then
+					local targetProgress = tonumber(value)
+					self.locks.targetProgress = self.progress + targetProgress
+				elseif action == "moveDistance" then
+					local distance = tonumber(value)
+					local currentProgress = self.progress
+					local targetProgress = currentProgress + (distance / self.config.pathLength) * 100
+					self.locks.targetProgress = targetProgress
+				elseif action == "moveTime" then
+					local t = tonumber(value)
+					local currentProgress = self.progress
+					local targetProgress = currentProgress
+						+ (t * self.config.attackersSpeed / self.config.pathLength) * 100
+					self.locks.targetProgress = targetProgress
+				elseif action == "setAsMinimumProgress" then
+					self.locks.minimumProgress = self.progress
+				else
+					warn("[TERMINAL] Unknown waypoint instruction action: " .. tostring(action))
+				end
+			end
+		end)
+
+		if not success then
+			warn("[TERMINAL] Error processing waypoint instructions: " .. tostring(err))
+		end
+	end
 end
 
 function terminalFunctions:Tick(tickRate: number)
@@ -173,6 +309,11 @@ function terminalFunctions:Tick(tickRate: number)
 	self:_computeState()
 	self:_updateProgress(tickRate)
 
+	if self.progress > lastState.progress then
+		self.lastMoved = os.clock()
+	end
+
+	self:_movePayload()
 	self:_updateWinState()
 
 	local updateObject = {}
@@ -194,8 +335,10 @@ function terminalFunctions:updatePersistantConfig()
 	self.persistantConfigObject:SetAttribute(
 		"terminal_config",
 		game:GetService("HttpService"):JSONEncode({
-			forwardSpeed = self.config.attackers_speed,
-			backwardSpeed = self.config.defenders_speed,
+			attackersSpeed = self.config.attackersSpeed,
+			defendersSpeed = self.config.defendersSpeed,
+			rollbackCooldown = self.config.rollbackCooldown,
+			pathLength = self.config.pathLength,
 		})
 	)
 end
@@ -217,6 +360,14 @@ return function(wrapper)
 	terminal.state = "locked"
 	terminal.progress = 0
 
+	terminal.currentWaypointIndex = 1
+
+	terminal.locks = {
+		minimumProgress = 0, -- Used to lock the payload from moving backwards past a certain point
+		targetProgress = nil, -- If set to a number, the payload will move towards the target progress without being affected by players
+		maximumProgress = 100, -- Used to lock the payload from moving forwards past a certain point
+	}
+
 	terminal.config = fetchConfig()
 	terminal.config.attackersTeam = wrapper.config.attackers.team
 	terminal.config.defendersTeam = wrapper.config.defenders.team
@@ -230,6 +381,9 @@ return function(wrapper)
 
 	terminal.components = require(script.DefaultComponents)
 	terminal:updatePersistantConfig()
+
+	terminal:_movePayload()
+
 	return {
 		terminal = terminal,
 		metadata = metadata,
