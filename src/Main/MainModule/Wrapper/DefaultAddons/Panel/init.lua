@@ -6,7 +6,7 @@ panelAddon.metadata = {
 	description = "The default terminal progress panel addon",
 	version = "v1.1",
 	author = "Omega77073",
-	compatibility = ">=1.2.0",
+	compatibility = ">=2.0.0",
 }
 panelAddon.id = "default-terminalPanel"
 

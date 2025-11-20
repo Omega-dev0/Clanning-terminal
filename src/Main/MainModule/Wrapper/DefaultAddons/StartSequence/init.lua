@@ -7,7 +7,7 @@ UIAddon.metadata = {
 	description = "The default terminal start sequence addon",
 	version = "v1.1",
 	author = "Omega77073",
-	compatibility = ">=1.2.0",
+	compatibility = ">=2.0.0",
 }
 UIAddon.id = "default-terminalStartSequence"
 

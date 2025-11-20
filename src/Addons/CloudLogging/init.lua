@@ -9,7 +9,7 @@ CloudLoggingAddon.metadata = {
 	description = "The default cloud logging addon",
 	version = "v1.1",
 	author = "Omega77073",
-	compatibility = ">=1.2.0",
+	compatibility = ">=2.0.0",
 }
 CloudLoggingAddon.id = "default-cloudLogging"
 local locationConnection
@@ -62,51 +62,6 @@ CloudLoggingAddon.init = function(wrapper)
 			leaderstats = {},
 		}
 
-		local playTimeList = {}
-		task.spawn(function()
-			while not sessionData.ended do
-				task.wait(1)
-				for _, player in pairs(game.Players:GetPlayers()) do
-					if not playTimeList[player.UserId] then
-						playTimeList[player.UserId] = {
-							attackers = 0,
-							defenders = 0,
-						}
-					end
-					if player.Team == wrapper.config.attackersTeam then
-						playTimeList[player.UserId].attackers += 1
-					elseif player.Team == wrapper.config.defendersTeam then
-						playTimeList[player.UserId].defenders += 1
-					end
-
-					if not sessionData.leaderstats[player.UserId] then
-						sessionData.leaderstats[player.UserId] = {}
-					end
-					if player:FindFirstChild("leaderstats") then
-						for _, c in pairs(player:FindFirstChild("leaderstats"):GetChildren()) do
-							if not sessionData.leaderstats[player.UserId][c.Name] then
-								sessionData.leaderstats[player.UserId][c.Name] = 0
-							end
-							sessionData.leaderstats[player.UserId][c.Name] = c.Value
-						end
-					end
-				end
-			end
-		end)
-
-		table.insert(
-			sessionConnections,
-			wrapper.terminal.events.stateChanged.Event:Connect(function(newState)
-				local lastState = sessionData.terminalStateHistory[#sessionData.terminalStateHistory]
-				if lastState.state ~= newState then
-					table.insert(sessionData.terminalStateHistory, {
-						time = os.time() - sessionData.startTime,
-						state = newState,
-					})
-				end
-			end)
-		)
-
 		table.insert(
 			sessionConnections,
 			game.ReplicatedStorage:WaitForChild("Terminal-LogEvent").Event:Connect(function(message, UserId)
@@ -145,58 +100,6 @@ CloudLoggingAddon.init = function(wrapper)
 				end)
 			)
 		end
-
-		wrapper.terminal.events.endEvent.Event:Connect(function()
-			sessionData.ended = true
-			sessionData.endTime = os.time()
-			sessionData.playTimeList = playTimeList
-			sessionData.config = {
-				core = httpService:JSONDecode(
-					game.ReplicatedStorage:WaitForChild("OmegasTerminalConfig_Persistant"):GetAttribute("core_config")
-				),
-				terminal = httpService:JSONDecode(
-					game.ReplicatedStorage
-						:WaitForChild("OmegasTerminalConfig_Persistant")
-						:GetAttribute("terminal_config")
-				),
-			}
-			sessionData.jobId = game.JobId
-			sessionData.serverLocation = SERVER_LOCATION or "Unknown"
-			sessionData.version = CloudLoggingAddon.metadata.version
-			sessionData.attackerPoints = wrapper.terminal.attackerPoints
-			sessionData.defenderPoints = wrapper.terminal.defenderPoints
-			sessionData.hash = SHA256(buffer.fromstring(httpService:JSONEncode(sessionData)), PRIVATE_KEY_BUFFER)
-
-			local function Upload()
-				httpService:PostAsync(
-					SERVER_URL,
-					httpService:JSONEncode(sessionData),
-					Enum.HttpContentType.ApplicationJson,
-					true,
-					{
-						["Authorization"] = `{API_KEY} {game.PlaceId}`,
-					}
-				)
-				game.ReplicatedStorage.Event:Fire(sessionData)
-			end
-
-			local success, err = pcall(Upload)
-			if not success and RunService:IsStudio() == false then
-				warn(`Failed to upload match data: {err}`)
-				warn("Retrying in 10 seconds...")
-				task.wait(10)
-				success, err = pcall(Upload)
-				if not success then
-					error(`Failed to upload match data: {err}`)
-				else
-					print("CloudLoggingAddon: Match data uploaded successfully.")
-				end
-			end
-
-			for _, connection in pairs(sessionConnections) do
-				connection:Disconnect()
-			end
-		end)
 	end)
 end
 

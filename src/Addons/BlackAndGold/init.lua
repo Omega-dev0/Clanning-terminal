@@ -6,7 +6,7 @@ UIAddon.metadata = {
 	description = "An addon for a  Black and gold's UI style for the default terminal type",
 	version = "v1.1",
 	author = "Omega77073",
-	compatibility = ">=1.2.0",
+	compatibility = ">=2.0.0",
 }
 UIAddon.id = "terminalUi-blackAndGold"
 

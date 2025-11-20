@@ -6,7 +6,7 @@ UIAddon.metadata = {
 	description = "A boilerplate for creating terminal UI addons",
 	version = "v1.1",
 	author = "---",
-	compatibility = ">=1.2.0",
+	compatibility = ">=2.0.0",
 }
 UIAddon.id = "terminalUi"
 

@@ -6,7 +6,7 @@ Addon.metadata = {
 	description = "Respawn players in playing teams on terminal start",
 	version = "v1.1",
 	author = "Omega77073",
-	compatibility = ">=1.2.0",
+	compatibility = ">=2.0.0",
 }
 Addon.id = "respawnOnStart"
 Addon.init = function(wrapper)

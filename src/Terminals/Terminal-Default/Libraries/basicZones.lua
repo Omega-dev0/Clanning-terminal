@@ -1,3 +1,7 @@
+-- Basic Zones Library
+-- Supports Block, Ball, and Cylinder zones
+-- v2.0.0 | Omega77073
+
 local zoneFunctions = {}
 local module = {}
 
@@ -118,6 +122,47 @@ function zoneFunctions:UpdateCFrame(newCFrame: CFrame)
 		end
 		self.localSpaceCorners = newLocalCorners
 	end
+
+	if self.debugPart then
+		self.debugPart.CFrame = newCFrame
+	end
+end
+
+function zoneFunctions:_visualize(enabled: boolean)
+	if self.debugPart then
+		self.debugPart:Destroy()
+		self.debugPart = nil
+	end
+
+	if not enabled then
+		return
+	end
+
+	local part = Instance.new("Part")
+	part.Name = "Zone Debug Visualizer"
+	part.Anchored = true
+	part.CanCollide = false
+	part.Transparency = 0.8
+	part.Material = Enum.Material.SmoothPlastic
+	part.Color = Color3.fromRGB(0, 255, 0)
+	part.CFrame = self.CFrame
+	if self.Shape == "Block" then
+		local localCorners = self.localSpaceCorners
+		local sizeX = math.abs(localCorners[2].X - localCorners[1].X)
+		local sizeY = math.abs(localCorners[3].Y - localCorners[1].Y)
+		local sizeZ = math.abs(localCorners[5].Z - localCorners[1].Z)
+		part.Size = Vector3.new(sizeX, sizeY, sizeZ)
+	elseif self.Shape == "Ball" then
+		part.Shape = Enum.PartType.Ball
+		part.Size = Vector3.new(self.Radius * 2, self.Radius * 2, self.Radius * 2)
+	elseif self.Shape == "Cylinder" then
+		part.Shape = Enum.PartType.Cylinder
+		part.Size = Vector3.new(self.maxHeight, self.Radius * 2, self.Radius * 2)
+	end
+
+	self.debugPart = part
+	part.Parent = workspace
+	return part
 end
 
 return module

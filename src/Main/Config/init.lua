@@ -56,8 +56,8 @@ return {
 		team = script["Defenders Team"].Value,
 	},
 
-	terminalTickRate = 15,
+	terminalTickRate = 15, -- How many times per second the terminal updates
 	isAdmin = isAdmin,
 	telemetry = true,
-	configVersion = "1.2.0",
+	configVersion = "2.0.0",
 }

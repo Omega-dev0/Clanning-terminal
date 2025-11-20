@@ -141,9 +141,22 @@ function module.Init()
 	module.started = false
 	module.timeFrozen = false
 
+	module.debug = {
+		enabled = false,
+	}
+
 	module.state = {}
 
-	module.tickCallbacks = {}
+	module.tickCallbacks = {
+		preTick = {
+			async = {},
+			sync = {},
+		},
+		postTick = {
+			async = {},
+			sync = {},
+		},
+	}
 
 	local persistantConfigInstance = Instance.new("Configuration")
 	persistantConfigInstance.Name = "OmegasTerminalConfig_Persistant"
@@ -344,12 +357,54 @@ function module.controls:Start(player: Player, immediate: boolean?)
 	end
 end
 
+function checkCompatibility(selfVersionString, compatibilityString)
+	local selfVersionSplit = selfVersionString:split(".")
+	local selfVersion = tonumber(selfVersionSplit[1]) * 10000
+		+ tonumber(selfVersionSplit[2]) * 100
+		+ tonumber(selfVersionSplit[3])
+	local operator, versionString = string.match(compatibilityString, "([<>=~]+)([%d%.]+)")
+	local versionSplit = versionString and string.split(versionString, ".") or { "0", "0", "0" }
+	local versionNumber = (tonumber(versionSplit[1]) or 0) * 10000
+		+ (tonumber(versionSplit[2]) or 0) * 100
+		+ (tonumber(versionSplit[3]) or 0)
+
+	local compatible = false
+	if operator == ">=" then
+		compatible = selfVersion >= versionNumber
+	end
+	if operator == "<=" then
+		compatible = selfVersion <= versionNumber
+	end
+	if operator == ">" then
+		compatible = selfVersion > versionNumber
+	end
+	if operator == "<" then
+		compatible = selfVersion < versionNumber
+	end
+	if operator == "==" then
+		compatible = selfVersion == versionNumber
+	end
+	if operator == "~=" then
+		compatible = selfVersion ~= versionNumber
+	end
+	return compatible
+end
+
 --- Management ---
 function module:AddAddon(moduleScript: ModuleScript)
 	if not module.initiated then
 		error("Module not initiated. Call module.Init() first.")
 	end
 	local m = require(moduleScript) :: addon
+
+	local compatibility = m.metadata and m.metadata.compatibility or ">=2.0.0"
+	local compatible = checkCompatibility(self.VERSION, compatibility)
+	if not compatible then
+		error(
+			`Addon {m.metadata.name} (version {m.metadata.version}) is not compatible with terminal version {self.VERSION}. Required: {compatibility}`
+		)
+	end
+
 	local uniqueId = httpService:GenerateGUID(false)
 	local addonId = m.id or uniqueId
 	for _, lib in pairs(m.Libraries or {}) do
@@ -367,7 +422,9 @@ function module:AddAddon(moduleScript: ModuleScript)
 
 	m.init(self)
 
-	print(`[TERMINAL] Loaded addon: {m.metadata.name} ({addonId}, {m.metadata.version})`)
+	print(
+		`[TERMINAL] Loaded addon: {m.metadata.name} ({addonId}, {m.metadata.version}) | Compatibility: {compatibility}`
+	)
 end
 
 function module:SwitchTerminalComponent(name: string, newComponent: (any) -> any)
@@ -386,14 +443,31 @@ function module:SwitchTerminalComponent(name: string, newComponent: (any) -> any
 	end
 end
 
-function module:AddTickCallback(f: () -> nil)
-	table.insert(self.tickCallbacks, f)
+function module:AddTickCallback(f: (tickRate: number) -> nil, isAsync: boolean?, tickPhase: "preTick" | "postTick"?)
+	assert(type(f) == "function", "First argument must be a function")
+	assert(
+		tickPhase == nil or tickPhase == "preTick" or tickPhase == "postTick",
+		"tickPhase must be either 'preTick' or 'postTick'"
+	)
+	assert(isAsync == nil or type(isAsync) == "boolean", "isAsync must be a boolean")
+	tickPhase = tickPhase or "postTick"
+	isAsync = isAsync or true
+	table.insert(module.tickCallbacks[tickPhase][isAsync and "async" or "sync"], f)
 end
 
 function module:LoadTerminal(moduleScript: ModuleScript)
 	print("[TERMINAL] Loading terminal: " .. moduleScript.Name)
 	local terminalModule = require(moduleScript)
 	local data = terminalModule(self)
+
+	local compatibility = data.metadata and data.metadata.compatibility or ">=2.0.0"
+	local compatible = checkCompatibility(self.VERSION, compatibility)
+	if not compatible then
+		error(
+			`Terminal {data.metadata.name} (version {data.metadata.version}) is not compatible with terminal version {self.VERSION}. Required: {compatibility}`
+		)
+	end
+
 	local terminal, metadata, libraries = data.terminal, data.metadata, data.libraries
 	for _, connection in pairs(module.terminalConnections) do
 		connection:Disconnect()
@@ -438,22 +512,34 @@ function module:LoadTerminal(moduleScript: ModuleScript)
 	end)
 
 	local s = 0
+	local realTickRate = 1 / module.config.terminalTickRate
 	table.insert(
 		module.terminalConnections,
 		runService.Heartbeat:Connect(function(deltaTime)
 			s = s + deltaTime
 			if s >= 1 / module.config.terminalTickRate then
+				realTickRate = 1 / s
 				if module.started then
-					task.spawn(function()
-						if module.timeFrozen then
-							module.endTime = module.endTime + s
-						end
-						module.terminal.timeLeft = module.endTime - workspace:GetServerTimeNow()
-						module.terminal:Tick(module.config.terminalTickRate)
-						for _, f in pairs(module.tickCallbacks) do
-							pcall(f)
-						end
-					end)
+					if module.timeFrozen then
+						module.endTime = module.endTime + s
+					end
+					module.terminal.timeLeft = module.endTime - workspace:GetServerTimeNow()
+
+					for _, f in pairs(module.tickCallbacks.preTick.sync) do
+						f(realTickRate)
+					end
+					for _, f in pairs(module.tickCallbacks.preTick.async) do
+						task.spawn(f, realTickRate)
+					end
+
+					module.terminal:Tick(realTickRate)
+
+					for _, f in pairs(module.tickCallbacks.postTick.sync) do
+						f(realTickRate)
+					end
+					for _, f in pairs(module.tickCallbacks.postTick.async) do
+						task.spawn(f, realTickRate)
+					end
 				end
 				s = 0
 			end
@@ -464,6 +550,15 @@ function module:LoadTerminal(moduleScript: ModuleScript)
 	module.terminalMetadata = metadata
 
 	print("Loaded terminal:", terminal, metadata)
+end
+
+function module:ToggleDebug(enabled: boolean)
+	module.debug.enabled = enabled
+	if self.terminal ~= nil then
+		if self.terminal.toggleDebug ~= nil then
+			self.terminal:toggleDebug(enabled)
+		end
+	end
 end
 
 return module

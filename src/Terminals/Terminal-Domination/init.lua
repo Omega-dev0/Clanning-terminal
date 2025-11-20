@@ -1,9 +1,9 @@
 local metadata = {
-	name = "Totem Terminal",
-	description = "Totem terminal",
-	version = "v1.0",
+	name = "Domination Terminal",
+	description = "Domination terminal",
+	version = "v2.0",
 	author = "Omega77073",
-	compatibility = ">=1.2.0",
+	compatibility = ">=2.0.0",
 }
 
 local terminalFunctions = {}

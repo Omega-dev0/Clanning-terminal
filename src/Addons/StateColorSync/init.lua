@@ -6,7 +6,7 @@ Addon.metadata = {
 	description = "Synchronizes instances color to the terminal's current state",
 	version = "v1.1",
 	author = "Omega77073",
-	compatibility = ">=1.2.0",
+	compatibility = ">=2.0.0",
 }
 Addon.id = "stateColorSync"
 Addon.init = function(wrapper)

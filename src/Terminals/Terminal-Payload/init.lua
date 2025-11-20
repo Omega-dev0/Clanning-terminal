@@ -2,9 +2,9 @@ local HttpService = game:GetService("HttpService")
 local metadata = {
 	name = "Payload Terminal",
 	description = "The default terminal for payload game mode.",
-	version = "v1.1",
+	version = "v2.0",
 	author = "Omega77073",
-	compatibility = ">=1.2.0",
+	compatibility = ">=2.0.0",
 }
 
 local terminalFunctions = {}
@@ -258,7 +258,8 @@ function terminalFunctions:_activateWaypoint()
 					]]
 
 				if action == "wait" then
-					local oldMaximumProgress, oldMinimumProgress = self.locks.maximumProgress, self.locks.minimumProgress
+					local oldMaximumProgress, oldMinimumProgress =
+						self.locks.maximumProgress, self.locks.minimumProgress
 					self.locks.maximumProgress = self.progress
 					task.wait(tonumber(value))
 					self.locks.maximumProgress = oldMaximumProgress
@@ -329,6 +330,8 @@ function terminalFunctions:Tick(tickRate: number)
 	if #updateObject > 0 then
 		self.events.partialUpdate:Fire(updateObject)
 	end
+
+	self:_updateDisplay(updateObject, tickRate)
 end
 
 function terminalFunctions:updatePersistantConfig()
@@ -341,6 +344,148 @@ function terminalFunctions:updatePersistantConfig()
 			pathLength = self.config.pathLength,
 		})
 	)
+end
+
+--- DEBUG ----
+local debugUtils = require(game.ReplicatedStorage:WaitForChild("Libraries"):WaitForChild("debugUtils"))
+local debugInstances = {}
+function terminalFunctions:toggleDebug(enabled)
+	self.debugEnabled = enabled
+
+	local zone = self.config.zone
+	zone:_visualize(enabled)
+
+	if enabled then
+		local debugBillboard = debugUtils.createDisplay(zone.CFrame.Position + Vector3.new(0, 5, 0))
+		debugInstances["billboard"] = debugBillboard
+
+		if debugInstances.waypoints == nil then
+			debugInstances.waypoints = {}
+			local lastPart = nil
+			for i = 0, 100 do
+				local t = i / 100
+				local cframe = self.config.spline:SolveCFrameLookAlong(t)
+				local waypointPart = Instance.new("Part")
+				waypointPart.Name = "Debug Waypoint " .. tostring(t)
+				waypointPart.Size = Vector3.new(0.5, 0.5, 0.5)
+				waypointPart.Anchored = true
+				waypointPart.CanCollide = false
+				waypointPart.CFrame = cframe
+				waypointPart.Transparency = 0.5
+				waypointPart.Material = Enum.Material.Neon
+				waypointPart.Color = Color3.fromRGB(255, 0, 0)
+				waypointPart.Parent = workspace
+				debugInstances.waypoints[i] = waypointPart
+				if lastPart then
+					local attachment0 = Instance.new("Attachment")
+					attachment0.Parent = lastPart
+					local attachment1 = Instance.new("Attachment")
+					attachment1.Parent = waypointPart
+					local beam = Instance.new("Beam")
+					beam.Attachment0 = attachment0
+					beam.Attachment1 = attachment1
+					beam.Parent = lastPart
+				end
+				lastPart = waypointPart
+			end
+		end
+	else
+		if debugInstances["billboard"] then
+			debugInstances["billboard"].part:Destroy()
+			debugInstances["billboard"] = nil
+		end
+
+		if debugInstances.waypoints then
+			for _, part in pairs(debugInstances.waypoints) do
+				part:Destroy()
+			end
+			debugInstances.waypoints = nil
+		end
+	end
+end
+function terminalFunctions:_updateDisplay(updateEvents, tickRate)
+	local display = debugInstances["billboard"]
+	if not display then
+		return
+	end
+	display.part.Position = self.config.zone.CFrame.Position + Vector3.new(0, 5, 0)
+
+	local terminalStateText = {}
+	table.insert(
+		terminalStateText,
+		debugUtils.getColorCodedText("State: ", Color3.new(1, 1, 1))
+			.. debugUtils.getColorCodedText(tostring(self.state), Color3.new(0, 0.882352, 1))
+	)
+	table.insert(
+		terminalStateText,
+		debugUtils.getColorCodedText("Progress: ", Color3.new(1, 1, 1))
+			.. debugUtils.getColorCodedText(string.format("%.2f", self.progress) .. "%", Color3.new(0, 1, 0))
+	)
+
+	table.insert(
+		terminalStateText,
+		debugUtils.getColorCodedText("Waypoint: ", Color3.new(1, 1, 1))
+			.. debugUtils.getColorCodedText(
+				self.currentWaypointIndex .. "/" .. #self.config.waypoints,
+				Color3.new(0.831372, 0, 1)
+			)
+	)
+
+	table.insert(
+		terminalStateText,
+		debugUtils.getColorCodedText("Attackers in zone: ", Color3.new(1, 1, 1))
+			.. debugUtils.getColorCodedText(tostring(self.attackersCount), Color3.new(0.968627, 0, 1))
+	)
+	table.insert(
+		terminalStateText,
+		debugUtils.getColorCodedText("Defenders in zone: ", Color3.new(1, 1, 1))
+			.. debugUtils.getColorCodedText(tostring(self.defendersCount), Color3.new(0.8, 0, 1))
+	)
+	table.insert(
+		terminalStateText,
+		debugUtils.getColorCodedText("Time Left: ", Color3.new(1, 1, 1))
+			.. debugUtils.getColorCodedText(
+				self.timeLeft == math.huge and "∞" or debugUtils.formatTime(self.timeLeft),
+				Color3.new(1, 0.843137, 0)
+			)
+	)
+	table.insert(
+		terminalStateText,
+		debugUtils.getColorCodedText("Last Update: ", Color3.new(1, 1, 1))
+			.. debugUtils.getColorCodedText(tostring(#updateEvents), Color3.new(1, 0.647059, 0))
+	)
+
+	table.insert(
+		terminalStateText,
+		debugUtils.getColorCodedText("Tick Rate: ", Color3.new(1, 1, 1))
+			.. debugUtils.getColorCodedText(string.format("%.2f Hz", tickRate), Color3.new(0, 0.850980, 1))
+	)
+
+	table.insert(
+		terminalStateText,
+		debugUtils.getColorCodedText("minimumProgress: ", Color3.new(1, 1, 1))
+			.. debugUtils.getColorCodedText(
+				string.format("%.2f%%", self.locks.minimumProgress or 0),
+				Color3.new(0.066666, 0.015686, 0.776470)
+			)
+	)
+	table.insert(
+		terminalStateText,
+		debugUtils.getColorCodedText("maximumProgress: ", Color3.new(1, 1, 1))
+			.. debugUtils.getColorCodedText(
+				string.format("%.2f%%", self.locks.maximumProgress or 100),
+				Color3.new(0.776470, 0.015686, 0.121568)
+			)
+	)
+	table.insert(
+		terminalStateText,
+		debugUtils.getColorCodedText("targetProgress: ", Color3.new(1, 1, 1))
+			.. debugUtils.getColorCodedText(
+				string.format("%.2f%%", self.locks.targetProgress or -1),
+				Color3.new(0.121568, 0.776470, 0.015686)
+			)
+	)
+	display.label.Text = table.concat(terminalStateText, "<br/>")
 end
 
 return function(wrapper)

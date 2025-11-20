@@ -16,10 +16,10 @@ print(`USING OMEGA'S TERMINAL v{mainModule.version}`)
 
 wrapper.Init()
 
-wrapper:LoadTerminal(script.Parent.Parent.Terminals.Payload)
+wrapper:LoadTerminal(script.Parent.Parent.Terminals["Terminal-Payload"])
 wrapper:AddAddon(wrapper.defaultAddons.UI)
 wrapper:AddAddon(wrapper.defaultAddons.Panel)
 wrapper:AddAddon(wrapper.defaultAddons.StartSequence)
 wrapper:AddAddon(wrapper.defaultAddons.EndSequence)
 
---wrapper:AddAddon(script.Parent.Parent.Addons.CloudLogging)
+wrapper:ToggleDebug(true)
