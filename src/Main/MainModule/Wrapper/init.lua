@@ -223,7 +223,9 @@ function module.Init()
 	workspace:SetAttribute("GameName", "Unknown game")
 	task.spawn(function()
 		pcall(function()
-			workspace:SetAttribute("GameName", game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name)
+			local gameName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
+			workspace:SetAttribute("GameName", gameName)
+			module.gameName = gameName
 		end)
 	end)
 
@@ -478,6 +480,8 @@ function module:LoadTerminal(moduleScript: ModuleScript)
 		end
 	end
 	module.terminalConnections = {}
+
+	module.properties.currentTerminal = metadata.name or "Unknown Terminal"
 
 	table.insert(
 		module.terminalConnections,

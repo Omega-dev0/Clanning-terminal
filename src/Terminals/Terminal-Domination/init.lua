@@ -279,6 +279,87 @@ function terminalFunctions:updatePersistantConfig()
 	)
 end
 
+--- DEBUG ----
+local debugUtils = require(game.ReplicatedStorage:WaitForChild("Libraries"):WaitForChild("debugUtils"))
+local debugInstances = {}
+function terminalFunctions:toggleDebug(enabled)
+	self.debugEnabled = enabled
+
+	local zone = self.config.zone
+	zone:_visualize(enabled)
+
+	if enabled then
+		local debugBillboard = debugUtils.createDisplay(zone.CFrame.Position + Vector3.new(0, 5, 0))
+		debugInstances["billboard"] = debugBillboard
+	else
+		if debugInstances["billboard"] then
+			debugInstances["billboard"].part:Destroy()
+			debugInstances["billboard"] = nil
+		end
+	end
+end
+function terminalFunctions:_updateDisplay(updateEvents, tickRate)
+	local display = debugInstances["billboard"]
+	if not display then
+		return
+	end
+
+	local terminalStateText = {}
+	table.insert(
+		terminalStateText,
+		debugUtils.getColorCodedText("State: ", Color3.new(1, 1, 1))
+			.. debugUtils.getColorCodedText(tostring(self.state), Color3.new(0, 0.882352, 1))
+	)
+	table.insert(
+		terminalStateText,
+		debugUtils.getColorCodedText("Attackers Points: ", Color3.new(1, 1, 1))
+			.. debugUtils.getColorCodedText(string.format("%.2f", self.attackerPoints), Color3.new(0, 1, 0))
+	)
+	table.insert(
+		terminalStateText,
+		debugUtils.getColorCodedText("Defenders Points: ", Color3.new(1, 1, 1))
+			.. debugUtils.getColorCodedText(string.format("%.2f", self.defenderPoints), Color3.new(0, 1, 0))
+	)
+	table.insert(
+		terminalStateText,
+		debugUtils.getColorCodedText("Capture Progress: ", Color3.new(1, 1, 1))
+			.. debugUtils.getColorCodedText(
+				string.format("%.2f%%", self.captureProgress * 100),
+				Color3.new(0, 0.933333, 1)
+			)
+	)
+	table.insert(
+		terminalStateText,
+		debugUtils.getColorCodedText("Attackers in zone: ", Color3.new(1, 1, 1))
+			.. debugUtils.getColorCodedText(tostring(self.attackersCount), Color3.new(0.968627, 0, 1))
+	)
+	table.insert(
+		terminalStateText,
+		debugUtils.getColorCodedText("Defenders in zone: ", Color3.new(1, 1, 1))
+			.. debugUtils.getColorCodedText(tostring(self.defendersCount), Color3.new(0.8, 0, 1))
+	)
+	table.insert(
+		terminalStateText,
+		debugUtils.getColorCodedText("Time Left: ", Color3.new(1, 1, 1))
+			.. debugUtils.getColorCodedText(
+				self.timeLeft == math.huge and "∞" or debugUtils.formatTime(self.timeLeft),
+				Color3.new(1, 0.843137, 0)
+			)
+	)
+	table.insert(
+		terminalStateText,
+		debugUtils.getColorCodedText("Last Update: ", Color3.new(1, 1, 1))
+			.. debugUtils.getColorCodedText(tostring(updateEvents), Color3.new(1, 0.647059, 0))
+	)
+
+	table.insert(
+		terminalStateText,
+		debugUtils.getColorCodedText("Tick Rate: ", Color3.new(1, 1, 1))
+			.. debugUtils.getColorCodedText(string.format("%.2f Hz", tickRate), Color3.new(0, 0.850980, 1))
+	)
+	display.label.Text = table.concat(terminalStateText, "<br/>")
+end
+
 return function(wrapper)
 	local terminal = setmetatable({}, { __index = terminalFunctions })
 	terminal.events = {

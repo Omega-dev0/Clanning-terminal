@@ -16,6 +16,9 @@ return function(version, wrapper)
 			})
 		end
 
+		local telemetryCode = httpService:GenerateGUID(false)
+		wrapper.properties.telemetryCode = telemetryCode
+
 		local telemetryData = {
 			version = version,
 

@@ -26,7 +26,7 @@ local EPSILON = 2e-7
 local CatRom: Types.CatRomMt = {} :: Types.CatRomMt
 CatRom.__index = CatRom
 
---- @type Vector Vector2 | Vector3
+--- @type Vector2 | Vector3
 --- @within CatRom
 
 --- @prop knots {number}

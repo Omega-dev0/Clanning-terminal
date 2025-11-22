@@ -9,7 +9,7 @@ type sequenceController = {
 	display: (config: any, data: any) -> (),
 	hide: () -> (),
 
-	showCloudLogging: (toggle: boolean) -> ()?,
+	showCloudLogging: (toggle: boolean, matchCode: string) -> ()?,
 }
 
 local controller = require(gui.Controller) :: sequenceController
@@ -23,7 +23,7 @@ packets.terminalEvent.listen(function(data)
 			properties = httpService:JSONDecode(config:GetAttribute("properties")),
 		}
 		if controller.showCloudLogging ~= nil then
-			controller.showCloudLogging(cfg.properties.isCloudLoggingEnabled)
+			controller.showCloudLogging(cfg.properties.isCloudLoggingEnabled, cfg.properties.matchCode)
 		end
 		controller.display(cfg, data.data)
 	end

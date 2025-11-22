@@ -34,6 +34,14 @@ local terminalSystem = ByteNet.defineNamespace("terminalSystem", function()
 			}),
 			reliabilityType = "reliable",
 		}),
+
+		systemChat = ByteNet.definePacket({
+			value = ByteNet.struct({
+				message = ByteNet.string,
+				metadata = ByteNet.string,
+			}),
+			reliabilityType = "reliable",
+		}),
 	}
 end)
 
