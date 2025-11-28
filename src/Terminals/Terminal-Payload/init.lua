@@ -93,6 +93,9 @@ function fetchConfig()
 		pathLength = spline:SolveLength(0, 1),
 		waypoints = waypoints,
 		waypointsInstances = waypointsI,
+
+		splineTension = splineTension,
+		splineAlpha = splineAlpha,
 	}
 end
 
@@ -203,12 +206,13 @@ function terminalFunctions:_updateWinState()
 end
 function terminalFunctions:_movePayload()
 	local newCFrame = self.config.spline:SolveCFrameLookAlong(self.progress / 100)
-	self.components.movePayloadModel(self, newCFrame)
-	self.config.zone:UpdateCFrame(self.config.payloadModel.PrimaryPart.CFrame)
+	self.cframe = newCFrame
+	self.components.movePayloadModel(self, newCFrame, self.progress)
+	self.config.zone:UpdateCFrame(newCFrame)
 
 	local lastWaypointIndex = self.currentWaypointIndex
 	for i = 1, #self.config.waypoints - 1 do
-		local distance = (self.config.payloadModel.PrimaryPart.Position - self.config.waypoints[i].Position).Magnitude
+		local distance = (self.cframe.Position - self.config.waypoints[i].Position).Magnitude
 		if distance < 0.5 then
 			self.currentWaypointIndex = i
 			break

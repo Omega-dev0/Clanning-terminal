@@ -414,7 +414,7 @@ function module:AddAddon(moduleScript: ModuleScript)
 	local uniqueId = httpService:GenerateGUID(false)
 	local addonId = m.id or uniqueId
 	for _, lib in pairs(m.Libraries or {}) do
-		if game.ReplicatedStorage:FindFirstChild(lib.Name) == nil then
+		if game.ReplicatedStorage.Libraries:FindFirstChild(lib.Name) == nil then
 			lib.Parent = game.ReplicatedStorage.Libraries
 		end
 	end

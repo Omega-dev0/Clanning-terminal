@@ -58,8 +58,10 @@ function components.updateProgress(terminal: terminal, tickRate: number): { newP
 	}
 end
 
-function components.movePayloadModel(terminal: terminal, newCFrame: CFrame)
+function components.movePayloadModel(terminal: terminal, newCFrame: CFrame, newProgress: number?)
 	terminal.config.payloadModel:SetPrimaryPartCFrame(newCFrame)
+	-- You might want to change that to optimize for performance
+	-- You can use the Payload-Optimization addon for that
 end
 
 --- Calculates the number of attackers and defenders currently present in the terminal's zone.

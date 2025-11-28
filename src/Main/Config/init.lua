@@ -14,7 +14,6 @@ DEFENDERS_NAME = "Defenders"
 -- How many times per second the terminal updates
 -- Higher --> More precision but greater network usage
 -- Lower --> Less precision but lower network usage
--- You might want to bump this up for terminals that require an high tickrate like payloads
 TERMINAL_TICK_RATE = 20
 
 --━━━━━━━━━━━━━━━━━━━ ADMINISTRATION ━━━━━━━━━━━━━━━━━━━--
