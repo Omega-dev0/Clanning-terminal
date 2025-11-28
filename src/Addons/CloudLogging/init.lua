@@ -107,7 +107,6 @@ CloudLoggingAddon.init = function(wrapper)
 			})
 
 			player.Chatted:Connect(function(message)
-				print("Logging chat message:", message)
 				table.insert(logs, {
 					timestamp = os.time() - startTime,
 					username = player.Name,
@@ -168,6 +167,7 @@ CloudLoggingAddon.init = function(wrapper)
 					warn(
 						"CloudLoggingAddon: Failed to get match code after multiple attempts. Match will not be logged."
 					)
+					wrapper.properties.isCloudLoggingEnabled = false
 					return
 				end
 				task.wait(5 + 5 * tries)
