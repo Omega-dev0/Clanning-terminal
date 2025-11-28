@@ -394,6 +394,10 @@ end
 
 --- Management ---
 function module:AddAddon(moduleScript: ModuleScript)
+	assert(
+		typeof(moduleScript) == "Instance" and moduleScript:IsA("ModuleScript"),
+		"The addon must be a ModuleScript ! Got: " .. typeof(moduleScript)
+	)
 	if not module.initiated then
 		error("Module not initiated. Call module.Init() first.")
 	end
@@ -458,6 +462,10 @@ function module:AddTickCallback(f: (tickRate: number) -> nil, isAsync: boolean?,
 end
 
 function module:LoadTerminal(moduleScript: ModuleScript)
+	assert(
+		typeof(moduleScript) == "Instance" and moduleScript:IsA("ModuleScript"),
+		"The terminal must be a ModuleScript ! Got: " .. typeof(moduleScript)
+	)
 	print("[TERMINAL] Loading terminal: " .. moduleScript.Name)
 	local terminalModule = require(moduleScript)
 	local data = terminalModule(self)

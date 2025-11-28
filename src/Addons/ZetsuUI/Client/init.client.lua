@@ -16,6 +16,13 @@ local function updateSettings()
 		terminal = httpService:JSONDecode(config:GetAttribute("terminal_config")),
 	}
 	gui.Enabled = cfg.core.started
+
+	controller:updateSettings({
+		attackersName = cfg.core.attackers.name,
+		defendersName = cfg.core.defenders.name,
+		attackersIcon = cfg.core.attackers.icon,
+		defendersIcon = cfg.core.defenders.icon,
+	})
 end
 
 local state = {
@@ -38,7 +45,7 @@ function updateState()
 		isContested,
 		state.state,
 		cfg.terminal.maxPoints,
-		state.captureProgress / cfg.terminal.captureTime
+		state.captureProgress ~= 0 and state.captureProgress / cfg.terminal.captureTime or 0
 	)
 	controller:toggleLock(state.state == "locked")
 end

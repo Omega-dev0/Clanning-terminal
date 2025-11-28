@@ -4,12 +4,11 @@ TIME_LIMIT = 60 -- Minutes
 --━━━━━━━━━━━━━━━━━━━ VISUALS ━━━━━━━━━━━━━━━━━━━--
 ATTACKERS_GROUP_ID = ""
 ATTACKERS_ICON = "http://www.roblox.com/asset/?id=129380584721400"
-ATTACKERS_NAME = ""
+ATTACKERS_NAME = "Raiders"
 
 DEFENDERS_GROUP_ID = ""
 DEFENDERS_ICON = "http://www.roblox.com/asset/?id=100248212164824"
-DEFENDERS_NAME = ""
-
+DEFENDERS_NAME = "Defenders"
 --━━━━━━━━━━━━━━━━━━━ TECHNICAL ━━━━━━━━━━━━━━━━━━━--
 
 -- How many times per second the terminal updates
