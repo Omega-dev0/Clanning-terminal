@@ -1,4 +1,5 @@
 {
   "stylua.targetReleaseVersion": "latest",
-  "prettier.printWidth": 1500
+  "prettier.printWidth": 1500,
+  "codeStatsViewer.maxLargestFilesSidebar": 100
 }

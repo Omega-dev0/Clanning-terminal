@@ -261,9 +261,12 @@ function terminalFunctions:_activateWaypoint()
 					local oldMaximumProgress, oldMinimumProgress =
 						self.locks.maximumProgress, self.locks.minimumProgress
 					self.locks.maximumProgress = self.progress
-					task.wait(tonumber(value))
-					self.locks.maximumProgress = oldMaximumProgress
-					self.locks.minimumProgress = oldMinimumProgress
+					task.spawn(function()
+						local waitTime = tonumber(value)
+						task.wait(waitTime)
+						self.locks.maximumProgress = oldMaximumProgress
+						self.locks.minimumProgress = oldMinimumProgress
+					end)
 				elseif action == "lock" then
 					self:Lock()
 				elseif action == "moveProgress" then
@@ -308,6 +311,9 @@ function terminalFunctions:Tick(tickRate: number)
 	end
 
 	self:_computeState()
+	if self.stopped then
+		return
+	end
 	self:_updateProgress(tickRate)
 
 	if self.progress > lastState.progress then
@@ -504,6 +510,7 @@ return function(wrapper)
 	terminal.timeLeft = math.huge
 	terminal.state = "locked"
 	terminal.progress = 0
+	terminal.stopped = false
 
 	terminal.currentWaypointIndex = 1
 
