@@ -1,6 +1,6 @@
 local httpService = game:GetService("HttpService")
 
-local REPORTING_URL = "https://terminal.omegadev.xyz/api/telemetry"
+local REPORTING_URL = "https://terminalv2.omegadev.xyz/api/telemetry"
 
 return function(version, wrapper)
 	pcall(function()
