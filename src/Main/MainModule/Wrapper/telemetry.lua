@@ -6,10 +6,10 @@ return function(version, wrapper)
 	pcall(function()
 		task.wait(10)
 		if game:GetService("RunService"):IsStudio() then
-			return -- Do not send telemetry in Studio
+			return
 		end
 		local availableAddons = {}
-		for id, addon in pairs(wrapper.Addons) do
+		for id, addon in pairs(wrapper.addons) do
 			table.insert(availableAddons, {
 				id = id,
 				metadata = addon.metadata or {},

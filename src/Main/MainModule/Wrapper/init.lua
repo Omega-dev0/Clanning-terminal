@@ -218,7 +218,9 @@ function module.Init()
 		end
 	end)
 
-	task.spawn(require(script.telemetry), script:GetAttribute("version"), module)
+	task.spawn(function()
+		require(script.telemetry)(script:GetAttribute("version"), module)
+	end)
 
 	workspace:SetAttribute("GameName", "Unknown game")
 	task.spawn(function()
@@ -236,7 +238,7 @@ end
 
 --- Controls ---
 
-function module.controls:modifyConfig(player: Player, newConfig: any)
+function module.controls:modifyConfig(newConfig: any, player: Player?)
 	-- Updating group icon and name
 	if newConfig.attackers.groupId ~= module.config.attackers.groupId and newConfig.attackers.groupId ~= "" then
 		local groupInfo = groupService:GetGroupInfoAsync(newConfig.attackers.groupId)
@@ -268,7 +270,9 @@ function module.controls:modifyConfig(player: Player, newConfig: any)
 			if module.config[key] == value then
 				continue
 			end
-			module.logEvent:Fire(`Updated wrapper config {key} ({module.config[key]} -> {value})`, player.UserId)
+			if player ~= nil then
+				module.logEvent:Fire(`Updated wrapper config {key} ({module.config[key]} -> {value})`, player.UserId)
+			end
 			module.config[key] = value
 		else
 			remainingKeys[key] = value
@@ -279,48 +283,62 @@ function module.controls:modifyConfig(player: Player, newConfig: any)
 	module.updatePersistantConfig()
 end
 
-function module.controls:FreezeTime(player: Player)
+function module.controls:FreezeTime(player: Player?)
 	module.timeFrozen = true
 	module.updatePersistantConfig()
-	module.logEvent:Fire("Froze time", player.UserId)
+	if player ~= nil then
+		module.logEvent:Fire("Froze time", player.UserId)
+	end
 end
-function module.controls:UnfreezeTime(player: Player)
+function module.controls:UnfreezeTime(player: Player?)
 	module.timeFrozen = false
 	module.updatePersistantConfig()
-	module.logEvent:Fire("Unfroze time", player.UserId)
+	if player ~= nil then
+		module.logEvent:Fire("Unfroze time", player.UserId)
+	end
 end
-function module.controls:AddTime(player: Player, seconds: number)
+function module.controls:AddTime(seconds: number, player: Player?)
 	module.endTime = module.endTime + seconds
 	module.updatePersistantConfig()
-	module.logEvent:Fire(`{seconds > 0 and "Added" or "Removed"} {seconds} seconds to timer`, player.UserId)
+	if player ~= nil then
+		module.logEvent:Fire(`{seconds > 0 and "Added" or "Removed"} {seconds} seconds to timer`, player.UserId)
+	end
 end
 
-function module.controls:AddProgress(player: Player, team: "attackers" | "defenders", progress: number, ...)
+function module.controls:AddProgress(team: "attackers" | "defenders", progress: number, player: Player?, ...)
 	if module.terminal ~= nil then
 		module.terminal:AddProgress(team, progress, ...)
-		module.logEvent:Fire(`Added {progress}% to {team}`, player.UserId)
+		if player ~= nil then
+			module.logEvent:Fire(`Added {progress}% to {team}`, player.UserId)
+		end
 	end
 end
 
-function module.controls:Lock(player: Player)
+function module.controls:Lock(player: Player?)
 	if module.terminal then
 		module.terminal:Lock()
-		module.logEvent:Fire("Locked terminal", player.UserId)
+		if player ~= nil then
+			module.logEvent:Fire("Locked terminal", player.UserId)
+		end
 	end
 end
-function module.controls:Unlock(player: Player)
+function module.controls:Unlock(player: Player?)
 	if module.terminal then
 		module.terminal:Unlock()
-		module.logEvent:Fire("Unlocked terminal", player.UserId)
+		if player ~= nil then
+			module.logEvent:Fire("Unlocked terminal", player.UserId)
+		end
 	end
 end
-function module.controls:Reset(player: Player)
+function module.controls:Reset(player: Player?)
 	if module.terminal then
 		module.terminal:Reset()
-		module.logEvent:Fire("Reset terminal", player.UserId)
+		if player ~= nil then
+			module.logEvent:Fire("Reset terminal", player.UserId)
+		end
 	end
 end
-function module.controls:Stop(player: Player)
+function module.controls:Stop(player: Player?)
 	if module.started == false then
 		warn("Terminal is not started, cannot stop it.")
 		return
@@ -334,9 +352,11 @@ function module.controls:Stop(player: Player)
 	module.timeFrozen = false
 
 	module.updatePersistantConfig()
-	module.logEvent:Fire("Stopped the terminal", player.UserId)
+	if player ~= nil then
+		module.logEvent:Fire("Stopped the terminal", player.UserId)
+	end
 end
-function module.controls:Start(player: Player, immediate: boolean?)
+function module.controls:Start(player: Player?, immediate: boolean?)
 	if module.started == true then
 		warn("Terminal is already started.")
 		return
@@ -354,6 +374,10 @@ function module.controls:Start(player: Player, immediate: boolean?)
 			task.wait(5)
 		end
 		module.terminal:Unlock()
+
+		if player ~= nil then
+			module.logEvent:Fire("Started the terminal", player.UserId)
+		end
 	else
 		warn("Starting but no terminal loaded")
 	end

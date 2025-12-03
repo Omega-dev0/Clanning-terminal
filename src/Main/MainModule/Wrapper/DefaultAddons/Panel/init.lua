@@ -23,7 +23,7 @@ panelAddon.init = function(wrapper)
 			for key, value in pairs(data.data.terminal) do
 				mergedConfig[key] = value
 			end
-			wrapper.controls:modifyConfig(player, mergedConfig)
+			wrapper.controls:modifyConfig(mergedConfig, player)
 			wrapper.updatePersistantConfig()
 		elseif actionKeys[1] == "control" then
 			local controlType = actionKeys[2]
@@ -35,17 +35,17 @@ panelAddon.init = function(wrapper)
 					wrapper.controls:UnfreezeTime(player)
 				end,
 				addTime = function(amount)
-					wrapper.controls:AddTime(player, amount)
+					wrapper.controls:AddTime(amount, player)
 				end,
 				removeTime = function(amount)
-					wrapper.controls:AddTime(player, -amount)
+					wrapper.controls:AddTime(-amount, player)
 				end,
 
 				addProgress = function(team, progress)
-					wrapper.controls:AddProgress(player, team, progress)
+					wrapper.controls:AddProgress(team, progress, player)
 				end,
 				removeProgress = function(team, progress)
-					wrapper.controls:AddProgress(player, team, -progress)
+					wrapper.controls:AddProgress(team, -progress, player)
 				end,
 
 				lockTerminal = function()

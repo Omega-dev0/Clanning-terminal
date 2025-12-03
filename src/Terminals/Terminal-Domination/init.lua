@@ -125,10 +125,12 @@ function terminalFunctions:UpdateConfig(newConfig, player: Player?)
 	for key, value in pairs(newConfig) do
 		if self.config[key] ~= nil then
 			if self.config[key] ~= value then
-				self.logEvent:Fire(
-					`Updated terminal config {key} ({self.config[key]} -> {newConfig[key]})`,
-					player.UserId
-				)
+				if player ~= nil then
+					self.logEvent:Fire(
+						`Updated terminal config {key} ({self.config[key]} -> {newConfig[key]})`,
+						player.UserId
+					)
+				end
 				self.config[key] = newConfig[key]
 			end
 		else
