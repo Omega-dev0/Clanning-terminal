@@ -12,7 +12,7 @@ return function(version, wrapper)
 		for id, addon in pairs(wrapper.addons) do
 			table.insert(availableAddons, {
 				id = id,
-				metadata = addon.metadata or {},
+				metadata = addon or {},
 			})
 		end
 
@@ -21,9 +21,12 @@ return function(version, wrapper)
 
 		local telemetryData = {
 			version = version,
-			telemetryVersion = 1,
+			telemetryVersion = 2,
 
 			gameName = wrapper.gameName,
+
+			terminalId = wrapper.properties.currentTerminal,
+			terminaleMetadata = wrapper.terminalMetadata or {},
 
 			gameId = game.GameId,
 			placeId = game.PlaceId,
