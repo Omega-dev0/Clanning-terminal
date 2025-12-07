@@ -156,7 +156,7 @@ CloudLoggingAddon.init = function(wrapper)
 				})
 				return response
 			end)
-
+			warn(success, response)
 			if success then
 				local data = httpService:JSONDecode(response)
 				if data.matchCode then
