@@ -4,7 +4,7 @@
     "Name": "Configuration",
     "Attributes": {
       "_API_Key": { "String": "your_api_key_here" },
-      "ServerURL": { "String": "https://v2.terminal.omegadev.xyz" },
+      "ServerURL": { "String": "https://terminalv2.omegadev.xyz" },
       "StudioServerURL": { "String": "http://localhost" },
       "Enabled": { "Bool": true },
       "PrimaryColor": { "String": "#1f2937" },

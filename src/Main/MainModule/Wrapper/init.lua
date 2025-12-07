@@ -418,43 +418,48 @@ end
 
 --- Management ---
 function module:AddAddon(moduleScript: ModuleScript)
-	assert(
-		typeof(moduleScript) == "Instance" and moduleScript:IsA("ModuleScript"),
-		"The addon must be a ModuleScript ! Got: " .. typeof(moduleScript)
-	)
-	if not module.initiated then
-		error("Module not initiated. Call module.Init() first.")
-	end
-	local m = require(moduleScript) :: addon
-
-	local compatibility = m.metadata and m.metadata.compatibility or ">=2.0.0"
-	local compatible = checkCompatibility(self.VERSION, compatibility)
-	if not compatible then
-		error(
-			`Addon {m.metadata.name} (version {m.metadata.version}) is not compatible with terminal version {self.VERSION}. Required: {compatibility}`
+	local sucess, result = pcall(function()
+		assert(
+			typeof(moduleScript) == "Instance" and moduleScript:IsA("ModuleScript"),
+			"The addon must be a ModuleScript ! Got: " .. typeof(moduleScript)
 		)
-	end
-
-	local uniqueId = httpService:GenerateGUID(false)
-	local addonId = m.id or uniqueId
-	for _, lib in pairs(m.Libraries or {}) do
-		if game.ReplicatedStorage.Libraries:FindFirstChild(lib.Name) == nil then
-			lib.Parent = game.ReplicatedStorage.Libraries
+		if not module.initiated then
+			error("Module not initiated. Call module.Init() first.")
 		end
+		local m = require(moduleScript) :: addon
+
+		local compatibility = m.metadata and m.metadata.compatibility or ">=2.0.0"
+		local compatible = checkCompatibility(self.VERSION, compatibility)
+		if not compatible then
+			error(
+				`Addon {m.metadata.name} (version {m.metadata.version}) is not compatible with terminal version {self.VERSION}. Required: {compatibility}`
+			)
+		end
+
+		local uniqueId = httpService:GenerateGUID(false)
+		local addonId = m.id or uniqueId
+		for _, lib in pairs(m.Libraries or {}) do
+			if game.ReplicatedStorage.Libraries:FindFirstChild(lib.Name) == nil then
+				lib.Parent = game.ReplicatedStorage.Libraries
+			end
+		end
+
+		if module.addons[addonId] ~= nil then
+			warn(`Duplicate addon id:{addonId}, changing id to {uniqueId}`)
+			addonId = uniqueId
+		end
+
+		module.addons[addonId] = m.metadata or {}
+
+		m.init(self)
+
+		print(
+			`[TERMINAL] Loaded addon: {m.metadata.name} ({addonId}, {m.metadata.version}) | Compatibility: {compatibility}`
+		)
+	end)
+	if not sucess then
+		error(`[TERMINAL] Failed to load addon {moduleScript.Name}: {tostring(result)}`)
 	end
-
-	if module.addons[addonId] ~= nil then
-		warn(`Duplicate addon id:{addonId}, changing id to {uniqueId}`)
-		addonId = uniqueId
-	end
-
-	module.addons[addonId] = m.metadata or {}
-
-	m.init(self)
-
-	print(
-		`[TERMINAL] Loaded addon: {m.metadata.name} ({addonId}, {m.metadata.version}) | Compatibility: {compatibility}`
-	)
 end
 
 function module:SwitchTerminalComponent(name: string, newComponent: (any) -> any)

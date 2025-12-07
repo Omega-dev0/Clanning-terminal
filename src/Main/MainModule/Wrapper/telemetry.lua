@@ -21,8 +21,12 @@ return function(version, wrapper)
 
 		local telemetryData = {
 			version = version,
+			telemetryVersion = 1,
 
-			gameId = game.PlaceId,
+			gameName = wrapper.gameName,
+
+			gameId = game.GameId,
+			placeId = game.PlaceId,
 			ownerId = game.CreatorId,
 			ownerType = game.CreatorType,
 
