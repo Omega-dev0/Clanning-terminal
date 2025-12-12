@@ -4,7 +4,7 @@ panelAddon.Libraries = script.Libraries:GetChildren()
 panelAddon.metadata = {
 	name = "Terminal Panel",
 	description = "The default terminal progress panel addon",
-	version = "v1.1",
+	version = "v1.2",
 	author = "Omega77073",
 	compatibility = ">=2.0.0",
 }
@@ -64,7 +64,7 @@ panelAddon.init = function(wrapper)
 				end,
 
 				start = function()
-					wrapper.controls:Start(player)
+					wrapper.controls:Start(player, 5)
 				end,
 			}
 

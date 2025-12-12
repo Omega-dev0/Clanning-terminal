@@ -1,4 +1,4 @@
-local VERSION = "2.0.0"
+local VERSION = "2.0.1"
 
 script.Wrapper:SetAttribute("version", VERSION)
 local wrapper = require(script.Wrapper)

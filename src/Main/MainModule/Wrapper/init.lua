@@ -125,6 +125,21 @@ function checkConfig(cfg)
 	end
 end
 
+function checkOutdatedVersion(displayName, selfVersion, versionData)
+	selfVersion = string.gsub(selfVersion, "v", "")
+	versionData.version = string.gsub(versionData.version, "v", "")
+	if selfVersion == versionData.version then
+		return
+	end
+	local printFunction = if versionData.outdateLevel == "warn"
+		then warn
+		else (if versionData.outdateLevel == "error" then error else print)
+
+	local message =
+		`[TERMINAL][OUTDATED VERSION] {displayName} version {selfVersion} is outdated. Latest version is {versionData.version}. Changelog: {versionData.changelog} | Get the latest version at https://terminal-docs.omegadev.xyz`
+	printFunction(message)
+end
+
 function module.Init()
 	module.config = config
 	checkConfig(module.config)
@@ -234,6 +249,20 @@ function module.Init()
 	game.Players.PlayerAdded:Connect(function(player)
 		packets.statusUpdate.sendTo(module.state, player)
 	end)
+
+	local s, r = pcall(function()
+		local versions = httpService:GetAsync(
+			"https://raw.githubusercontent.com/Omega-dev0/Clanning-terminal/refs/heads/master/versions.json"
+		)
+		local versionsData = httpService:JSONDecode(versions)
+
+		module.versionsData = versionsData
+
+		local currentVersion = script:GetAttribute("version")
+		local latestCoreVersion = versionsData.core
+
+		checkOutdatedVersion("Core", currentVersion, latestCoreVersion)
+	end)
 end
 
 --- Controls ---
@@ -309,7 +338,7 @@ function module.controls:AddProgress(team: "attackers" | "defenders", progress: 
 	if module.terminal ~= nil then
 		module.terminal:AddProgress(team, progress, ...)
 		if player ~= nil then
-			module.logEvent:Fire(`Added {progress}% to {team}`, player.UserId)
+			module.logEvent:Fire(`Added {progress * 100}% to {team}`, player.UserId)
 		end
 	end
 end
@@ -356,23 +385,23 @@ function module.controls:Stop(player: Player?)
 		module.logEvent:Fire("Stopped the terminal", player.UserId)
 	end
 end
-function module.controls:Start(player: Player?, immediate: boolean?)
+function module.controls:Start(player: Player?, delay: number?)
 	if module.started == true then
 		warn("Terminal is already started.")
 		return
 	end
 	module.terminal:Reset()
-	module.started = true
-	module.timeFrozen = false
-	module.startTime = workspace:GetServerTimeNow()
-	module.endTime = module.startTime + (module.config.timeLimit * 60)
 	module.updatePersistantConfig()
 
 	if module.terminal ~= nil then
 		module.terminal.events.startEvent:Fire()
-		if immediate ~= true then
-			task.wait(5)
+		if delay ~= nil then
+			task.wait(delay)
 		end
+		module.started = true
+		module.timeFrozen = false
+		module.startTime = workspace:GetServerTimeNow()
+		module.endTime = module.startTime + (module.config.timeLimit * 60)
 		module.terminal:Unlock()
 
 		if player ~= nil then
@@ -451,6 +480,17 @@ function module:AddAddon(moduleScript: ModuleScript)
 
 		module.addons[addonId] = m.metadata or {}
 
+		if m.metadata == nil then
+			local knownLatestVersion = module.versionsData[addonId]
+			if knownLatestVersion ~= nil then
+				checkOutdatedVersion(
+					`Addon {m.metadata.name and m.metadata.name or addonId}`,
+					m.metadata.version and m.metadata.version or "unknown",
+					knownLatestVersion
+				)
+			end
+		end
+
 		m.init(self)
 
 		print(
@@ -475,6 +515,7 @@ function module:SwitchTerminalComponent(name: string, newComponent: (any) -> any
 		error("Terminal component '" .. name .. "' does not exist, available components: " .. availableComponents)
 	else
 		module.terminal.components[name] = newComponent
+		print("[TERMINAL] Switched terminal component: " .. name)
 	end
 end
 

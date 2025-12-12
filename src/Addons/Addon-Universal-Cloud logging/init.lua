@@ -9,7 +9,7 @@ CloudLoggingAddon.Libraries = script.Libraries:GetChildren()
 CloudLoggingAddon.metadata = {
 	name = "Cloud Logging",
 	description = "The default cloud logging addon",
-	version = "v1.1",
+	version = "v1.3",
 	author = "Omega77073",
 	compatibility = ">=2.0.0",
 }
@@ -46,7 +46,9 @@ CloudLoggingAddon.init = function(wrapper)
 		end
 	end)
 
+	local started = false
 	wrapper.terminal.events.startEvent.Event:Connect(function()
+		started = true
 		--New session
 
 		local sessionConnections = {}
@@ -54,6 +56,26 @@ CloudLoggingAddon.init = function(wrapper)
 		local startTime = os.time()
 
 		local leaderboard = {}
+
+		local playtimes = {}
+		task.spawn(function()
+			while started do
+				task.wait(1)
+				for _, player in pairs(game.Players:GetPlayers()) do
+					if not playtimes[player.UserId] then
+						playtimes[player.UserId] = {
+							attackers = 0,
+							defenders = 0,
+						}
+					end
+					if player.Team == wrapper.config.attackers.team then
+						playtimes[player.UserId].attackers = playtimes[player.UserId].attackers + 1
+					elseif player.Team == wrapper.config.defenders.team then
+						playtimes[player.UserId].defenders = playtimes[player.UserId].defenders + 1
+					end
+				end
+			end
+		end)
 
 		-- LOGS --
 		table.insert(
@@ -181,6 +203,7 @@ CloudLoggingAddon.init = function(wrapper)
 		wrapper.updatePersistantConfig()
 
 		local function onEnd(winner)
+			started = false
 			local matchData = {
 				attackersId = wrapper.config.attackers.groupId, -- Repalced by attackersLogo at ingest
 				attackersName = wrapper.config.attackers.name or "Attackers",
@@ -233,9 +256,22 @@ CloudLoggingAddon.init = function(wrapper)
 			matchData.logs = logs
 
 			for _, player in pairs(game.Players:GetPlayers()) do
-				if player.Team == wrapper.config.attackers.team then
+				local playerTeam = nil
+				local playtimeData = playtimes[player.UserId] or { attackers = 0, defenders = 0 }
+				local totalPlaytime = playtimeData.attackers + playtimeData.defenders
+				if totalPlaytime > 10 then
+					playerTeam = playtimeData.attackers > playtimeData.defenders and "attackers" or "defenders"
+				else
+					playerTeam = player.Team == wrapper.config.attackers.team and "attackers"
+						or player.Team == wrapper.config.defenders.team and "defenders"
+						or "unknown"
+				end
+
+				if playerTeam == "attackers" then
+					leaderboard[player.UserId].Playtime = string.format("%.2f minutes", playtimeData.attackers / 60)
 					table.insert(matchData.attackersPlayerList, leaderboard[player.UserId])
-				elseif player.Team == wrapper.config.defenders.team then
+				elseif playerTeam == "defenders" then
+					leaderboard[player.UserId].Playtime = string.format("%.2f minutes", playtimeData.defenders / 60)
 					table.insert(matchData.defendersPlayerList, leaderboard[player.UserId])
 				end
 			end
