@@ -135,9 +135,21 @@ function checkOutdatedVersion(displayName, selfVersion, versionData)
 		then warn
 		else (if versionData.outdateLevel == "error" then error else print)
 
-	local message =
-		`[TERMINAL][OUTDATED VERSION] {displayName} version {selfVersion} is outdated. Latest version is {versionData.version}. Changelog: {versionData.changelog} | Get the latest version at https://terminal-docs.omegadev.xyz`
-	printFunction(message)
+	local messages = {
+		`------------------  [TERMINAL][OUTDATED VERSION] ------------------`,
+		`{displayName} (v{selfVersion}) is outdated. Latest version is {versionData.version}`,
+		`Changelog: {versionData.changelog}`,
+		`Download new version on the website !`,
+		`------------------------------------------------------------------`,
+	}
+
+	if printFunction == error then
+		printFunction(table.concat(messages, "\n"))
+	else
+		for _, message in pairs(messages) do
+			printFunction(message)
+		end
+	end
 end
 
 function module.Init()
@@ -403,7 +415,7 @@ function module.controls:Start(player: Player?, delay: number?)
 		module.startTime = workspace:GetServerTimeNow()
 		module.endTime = module.startTime + (module.config.timeLimit * 60)
 		module.terminal:Unlock()
-
+		module.updatePersistantConfig()
 		if player ~= nil then
 			module.logEvent:Fire("Started the terminal", player.UserId)
 		end
@@ -480,11 +492,11 @@ function module:AddAddon(moduleScript: ModuleScript)
 
 		module.addons[addonId] = m.metadata or {}
 
-		if m.metadata == nil then
+		if m.metadata ~= nil then
 			local knownLatestVersion = module.versionsData[addonId]
 			if knownLatestVersion ~= nil then
 				checkOutdatedVersion(
-					`Addon {m.metadata.name and m.metadata.name or addonId}`,
+					`Addon: {m.metadata.name and m.metadata.name or addonId}`,
 					m.metadata.version and m.metadata.version or "unknown",
 					knownLatestVersion
 				)
@@ -536,7 +548,7 @@ function module:LoadTerminal(moduleScript: ModuleScript)
 		typeof(moduleScript) == "Instance" and moduleScript:IsA("ModuleScript"),
 		"The terminal must be a ModuleScript ! Got: " .. typeof(moduleScript)
 	)
-	print("[TERMINAL] Loading terminal: " .. moduleScript.Name)
+
 	local terminalModule = require(moduleScript)
 	local data = terminalModule(self)
 
@@ -631,7 +643,7 @@ function module:LoadTerminal(moduleScript: ModuleScript)
 	module.terminal = terminal
 	module.terminalMetadata = metadata
 
-	print("Loaded terminal:", terminal, metadata)
+	print("[TERMINAL] Loaded terminal: " .. (metadata.name or "Unknown Terminal"))
 end
 
 function module:ToggleDebug(enabled: boolean)

@@ -75,6 +75,7 @@ local function updateConfig()
 	cfg = {
 		core = httpService:JSONDecode(config:GetAttribute("core_config")),
 		terminal = httpService:JSONDecode(config:GetAttribute("terminal_config")),
+		properties = httpService:JSONDecode(config:GetAttribute("properties")),
 	}
 	controller:updateConfig(cfg)
 end
@@ -162,6 +163,12 @@ controller.events.saveConfig.Event:Connect(function(newConfig)
 	packets.action.send({
 		action = "modifyConfig",
 		data = newConfig,
+	})
+end)
+controller.events.detectGroups.Event:Connect(function(team)
+	packets.action.send({
+		action = "detectGroup",
+		data = team,
 	})
 end)
 

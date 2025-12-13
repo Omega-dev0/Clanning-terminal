@@ -10,12 +10,12 @@ mainModule = require(script.Parent.MainModule)
 
 mainModule.checkCompatibility(config.configVersion)
 local wrapper = mainModule.wrapper
-print(`USING OMEGA'S TERMINAL v{mainModule.version}`)
+print(`------------------  [OMEGA'S TERMINAL v{mainModule.version}] ------------------`)
 
 --━━━━━━━━━━━━━━━━━━━ SERVER ━━━━━━━━━━━━━━━━━━━--
 wrapper.Init()
 --━━━━━━━━━━━━━━━━━━━ LOAD TERMINAL ━━━━━━━━━━━━━━━━━━━--
-wrapper:LoadTerminal(script.Parent.Addons["TERMINAL"]) -- Load the terminal
+wrapper:LoadTerminal(script.Parent.Parent.Terminals["Terminal-Payload"]) -- Load the terminal
 --━━━━━━━━━━━━━━━━━━━ LOAD ADDONS ━━━━━━━━━━━━━━━━━━━--
 wrapper:AddAddon(wrapper.defaultAddons.UI)
 wrapper:AddAddon(wrapper.defaultAddons.Panel)
@@ -26,4 +26,5 @@ wrapper:AddAddon(wrapper.defaultAddons.EndSequence)
 --━━━━━━━━━━━━━━━━━━━ INTERACT WITH THE TERMINAL ━━━━━━━━━━━━━━━━━━━--
 --wrapper:ToggleDebug(true)
 
-print(`[TERMINAL] Server initialized successfully !.`)
+print(`[TERMINAL] Initialized successfully ! | Thanks for using Omega's Terminal !`)
+print(`------------------------------------------------------------------`)
