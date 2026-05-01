@@ -11,7 +11,7 @@ local terminalSystem = ByteNet.defineNamespace("terminalSystem", function()
 				stateKey = ByteNet.string,
 				stateValue = ByteNet.unknown,
 			})),
-			reliabilityType = "unreliable",
+			reliabilityType = "reliable",
 		}),
 
 		action = ByteNet.definePacket({

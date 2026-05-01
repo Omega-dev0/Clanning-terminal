@@ -83,12 +83,14 @@ function module.updatePersistantConfig()
 				groupId = module.config.attackers.groupId,
 				icon = module.config.attackers.icon,
 				name = module.config.attackers.name,
+				teamName = module.config.attackers.team.Name,
 			},
 
 			defenders = {
 				groupId = module.config.defenders.groupId,
 				icon = module.config.defenders.icon,
 				name = module.config.defenders.name,
+				teamName = module.config.defenders.team.Name,
 			},
 
 			endTime = module.endTime,
@@ -167,6 +169,8 @@ function module.Init()
 	module.startTime = 0
 	module.started = false
 	module.timeFrozen = false
+	module.frozenAt = 0
+	module.frozenTime = 0
 
 	module.debug = {
 		enabled = false,
@@ -262,7 +266,7 @@ function module.Init()
 		packets.statusUpdate.sendTo(module.state, player)
 	end)
 
-	local s, r = pcall(function()
+	task.spawn(function()
 		local versions = httpService:GetAsync(
 			"https://raw.githubusercontent.com/Omega-dev0/Clanning-terminal/refs/heads/master/versions.json"
 		)
@@ -326,6 +330,7 @@ end
 
 function module.controls:FreezeTime(player: Player?)
 	module.timeFrozen = true
+	module.frozenAt = workspace:GetServerTimeNow()
 	module.updatePersistantConfig()
 	if player ~= nil then
 		module.logEvent:Fire("Froze time", player.UserId)
@@ -492,7 +497,7 @@ function module:AddAddon(moduleScript: ModuleScript)
 
 		module.addons[addonId] = m.metadata or {}
 
-		if m.metadata ~= nil then
+		if m.metadata ~= nil and module.versionsData ~= nil then
 			local knownLatestVersion = module.versionsData[addonId]
 			if knownLatestVersion ~= nil then
 				checkOutdatedVersion(
@@ -616,6 +621,7 @@ function module:LoadTerminal(moduleScript: ModuleScript)
 				if module.started then
 					if module.timeFrozen then
 						module.endTime = module.endTime + s
+						module.frozenTime = module.frozenTime + s
 					end
 					module.terminal.timeLeft = module.endTime - workspace:GetServerTimeNow()
 

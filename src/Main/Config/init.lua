@@ -79,6 +79,8 @@ return {
 		team = script["Defenders Team"].Value,
 	},
 
+	startDelay = 5, -- Used by the panel to delay start event and unlock
+
 	terminalTickRate = TERMINAL_TICK_RATE, -- How many times per second the terminal updates
 	isAdmin = isAdmin,
 	telemetry = true,

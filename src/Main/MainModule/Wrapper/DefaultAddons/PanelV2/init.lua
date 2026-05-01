@@ -2,9 +2,9 @@ local panelAddon = {}
 local packets = require(game.ReplicatedStorage:WaitForChild("Libraries"):FindFirstChild("OmegasTerminalPackets"))
 panelAddon.Libraries = script.Libraries:GetChildren()
 panelAddon.metadata = {
-	name = "Terminal Panel",
+	name = "Terminal Panel V2",
 	description = "The default terminal progress panel addon",
-	version = "v1.2",
+	version = "v2",
 	author = "Omega77073",
 	compatibility = ">=2.0.1",
 }
@@ -177,31 +177,32 @@ panelAddon.init = function(wrapper)
 		elseif actionKeys[1] == "control" then
 			local controlType = actionKeys[2]
 			local controls = {
-				freezeTime = function()
-					wrapper.controls:FreezeTime(player)
-				end,
-				unfreezeTime = function()
-					wrapper.controls:UnfreezeTime(player)
+				toggleTimeFreeze = function(frozen)
+					if frozen then
+						wrapper.controls:FreezeTime(player)
+					else
+						wrapper.controls:UnfreezeTime(player)
+					end
 				end,
 				addTime = function(amount)
 					wrapper.controls:AddTime(amount, player)
 				end,
-				removeTime = function(amount)
-					wrapper.controls:AddTime(-amount, player)
+
+				addProgress = function(attackers, defenders)
+					if attackers ~= 0 then
+						wrapper.controls:AddProgress("attackers", attackers, player)
+					end
+					if defenders ~= 0 then
+						wrapper.controls:AddProgress("defenders", defenders, player)
+					end
 				end,
 
-				addProgress = function(team, progress)
-					wrapper.controls:AddProgress(team, progress, player)
-				end,
-				removeProgress = function(team, progress)
-					wrapper.controls:AddProgress(team, -progress, player)
-				end,
-
-				lockTerminal = function()
-					wrapper.controls:Lock(player)
-				end,
-				unlockTerminal = function()
-					wrapper.controls:Unlock(player)
+				toggleLock = function(locked)
+					if locked then
+						wrapper.controls:Lock(player)
+					else
+						wrapper.controls:Unlock(player)
+					end
 				end,
 
 				reset = function()
@@ -230,7 +231,7 @@ panelAddon.init = function(wrapper)
 	end)
 
 	local terminalId = wrapper.terminal.terminalId
-	local client = script.Client:FindFirstChild(terminalId)
+	local client = script.Client
 	if client == nil then
 		error(`Could not find a panel client for terminal id: {terminalId}`)
 	end
