@@ -84,5 +84,5 @@ return {
 	terminalTickRate = TERMINAL_TICK_RATE, -- How many times per second the terminal updates
 	isAdmin = isAdmin,
 	telemetry = true,
-	configVersion = "2.0.0",
+	configVersion = "v2.0.1",
 }

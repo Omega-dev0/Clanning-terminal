@@ -429,12 +429,12 @@ function module.controls:Start(player: Player?, delay: number?)
 end
 
 function checkCompatibility(selfVersionString, compatibilityString)
-	local selfVersionSplit = selfVersionString:split(".")
+	local selfVersionSplit = selfVersionString:gsub("v", ""):split(".")
 	local selfVersion = tonumber(selfVersionSplit[1]) * 10000
 		+ tonumber(selfVersionSplit[2]) * 100
 		+ tonumber(selfVersionSplit[3])
 	local operator, versionString = string.match(compatibilityString, "([<>=~]+)([%d%.]+)")
-	local versionSplit = versionString and string.split(versionString, ".") or { "0", "0", "0" }
+	local versionSplit = versionString and string.split(versionString:gsub("v", ""), ".") or { "0", "0", "0" }
 	local versionNumber = (tonumber(versionSplit[1]) or 0) * 10000
 		+ (tonumber(versionSplit[2]) or 0) * 100
 		+ (tonumber(versionSplit[3]) or 0)

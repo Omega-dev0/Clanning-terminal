@@ -1,7 +1,7 @@
 {
   "core": {
-    "version": "2.0.1",
-    "changelog": "Group autodetection, versionning check, team limits and various fixes.",
+    "version": "2.1.0",
+    "changelog": "Panel V2 support and various bug fixes.",
     "outdateLevel": "warn"
   },
 
@@ -12,8 +12,8 @@
   },
 
   "default-terminalPanel": {
-    "version": "1.2",
-    "changelog": "Updated to core 2.0.1, group autodetection and team limits",
+    "version": "2.0",
+    "changelog": "Data driven panel for terminal config and various bug fixes.",
     "outdateLevel": "warn"
   },
 

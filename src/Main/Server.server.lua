@@ -1,7 +1,7 @@
 --━━━━━━━━━━━━━━━━ INITIALIZATION ━━━━━━━━━━━━━━━━--
 --[DEV](DELETE){
 if game.ServerScriptService:FindFirstChild("DevTest") ~= nil then
-	require(game.ServerScriptService.DevTest)
+	require(game.ServerScriptService.DevTest)()
 end
 --}
 
@@ -15,7 +15,7 @@ mainModule = require(script.Parent.MainModule)
 
 mainModule.checkCompatibility(config.configVersion)
 local wrapper = mainModule.wrapper
-print(`------------------  [OMEGA'S TERMINAL v{mainModule.version}] ------------------`)
+print(`------------------  [OMEGA'S TERMINAL {mainModule.version}] ------------------`)
 
 --━━━━━━━━━━━━━━━━━━━ SERVER ━━━━━━━━━━━━━━━━━━━--
 wrapper.Init()
