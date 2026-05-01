@@ -1,0 +1,9 @@
+{
+  "className": "Folder",
+  "properties": {
+    "Name": "Addons",
+    "Attributes": {
+      "description": { "String": "This folder does not do anything, but it's already there to organize your stuff" }
+    }
+  }
+}
