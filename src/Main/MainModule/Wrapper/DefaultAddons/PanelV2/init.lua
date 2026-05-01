@@ -4,9 +4,11 @@ panelAddon.Libraries = script.Libraries:GetChildren()
 panelAddon.metadata = {
 	name = "Terminal Panel V2",
 	description = "The default terminal progress panel addon",
-	version = "v2",
+	--[DEV](REPLACE:{PANEL_V2_VERSION}:){
+	version = "v2.0",
+	--}
 	author = "Omega77073",
-	compatibility = ">=2.0.1",
+	compatibility = ">=2.1.0",
 }
 panelAddon.id = "default-terminalPanel"
 

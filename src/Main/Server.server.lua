@@ -1,7 +1,9 @@
 --━━━━━━━━━━━━━━━━ INITIALIZATION ━━━━━━━━━━━━━━━━--
+--[DEV](DELETE){
 if game.ServerScriptService:FindFirstChild("DevTest") ~= nil then
-	require(game.ServerScriptService.DevTest)()
+	require(game.ServerScriptService.DevTest)
 end
+--}
 
 local configInstance = script.Parent.Config
 configInstance.Name = "OmegasTerminalConfig"
@@ -28,7 +30,7 @@ wrapper:AddAddon(wrapper.defaultAddons.EndSequence)
 -- wrapper:AddAddon(script.Parent.Addons.CloudLogging)
 
 --━━━━━━━━━━━━━━━━━━━ INTERACT WITH THE TERMINAL ━━━━━━━━━━━━━━━━━━━--
-wrapper:ToggleDebug(true)
+wrapper:ToggleDebug(game:GetService("RunService"):IsStudio()) -- Enable debug in studio
 
 print(`[TERMINAL] Initialized successfully ! | Thanks for using Omega's Terminal !`)
 print(`------------------------------------------------------------------`)

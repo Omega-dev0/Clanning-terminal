@@ -99,7 +99,6 @@ function module.updatePersistantConfig()
 			startTime = module.startTime,
 		})
 	)
-
 	module.persistantConfig:SetAttribute("properties", httpService:JSONEncode(module.properties))
 end
 
@@ -302,10 +301,6 @@ function module.controls:modifyConfig(newConfig: any, player: Player?)
 		end
 	end
 
-	if module.started then
-		module.endTime = module.startTime + (module.config.timeLimit * 60)
-	end
-
 	local remainingKeys = {}
 	for key, value in pairs(newConfig) do
 		if key == "attackers" or key == "defenders" then
@@ -322,6 +317,10 @@ function module.controls:modifyConfig(newConfig: any, player: Player?)
 		else
 			remainingKeys[key] = value
 		end
+	end
+
+	if module.started == true then
+		module.endTime = module.startTime + (module.config.timeLimit * 60)
 	end
 
 	module.terminal:UpdateConfig(remainingKeys, player)

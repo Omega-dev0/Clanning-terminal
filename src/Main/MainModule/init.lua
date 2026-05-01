@@ -1,4 +1,6 @@
+--[DEV](REPLACE:{CORE_VERSION}:){
 local VERSION = "2.0.1"
+--}
 
 script.Wrapper:SetAttribute("version", VERSION)
 local wrapper = require(script.Wrapper)

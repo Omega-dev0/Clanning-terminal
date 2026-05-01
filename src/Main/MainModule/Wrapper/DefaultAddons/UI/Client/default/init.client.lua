@@ -54,7 +54,7 @@ packets.partialStatusUpdate.listen(function(data)
 	end
 	updateState()
 end)
-game.ReplicatedStorage:WaitForChild("OmegasTerminalConfig_Persistant").AttributeChanged:Connect(function()
+game.ReplicatedStorage:WaitForChild("OmegasTerminalConfig_Persistant").AttributeChanged:Connect(function(attributeName)
 	updateSettings()
 	updateState()
 end)

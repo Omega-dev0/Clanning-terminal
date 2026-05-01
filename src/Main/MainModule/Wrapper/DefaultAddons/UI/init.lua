@@ -4,7 +4,9 @@ UIAddon.Libraries = {}
 UIAddon.metadata = {
 	name = "Terminal UI",
 	description = "The default terminal progress UI addon",
+	--[DEV](REPLACE:{UI_VERSION}:){
 	version = "v1.1",
+	--}
 	author = "Omega77073",
 	compatibility = ">=2.0.0",
 }

@@ -5,7 +5,9 @@ UIAddon.Libraries = {}
 UIAddon.metadata = {
 	name = "Start sequence",
 	description = "The default terminal start sequence addon",
+	--[DEV](REPLACE:{START_SEQUENCE_VERSION}:){
 	version = "v1.1",
+	--}
 	author = "Omega77073",
 	compatibility = ">=2.0.0",
 }
