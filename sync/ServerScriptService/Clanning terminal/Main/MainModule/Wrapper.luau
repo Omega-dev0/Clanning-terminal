@@ -1,0 +1,663 @@
+--[[
+   ____                            ______ ______ ___ ______ ____
+  / __ \                          |____  |____  / _ \____  |___ \
+ | |  | |_ __ ___   ___  __ _  __ _   / /    / / | | |  / /  __) |
+ | |  | | '_ ` _ \ / _ \/ _` |/ _` | / /    / /| | | | / /  |__ <
+ | |__| | | | | | |  __/ (_| | (_| |/ /    / / | |_| |/ /   ___) |
+  \____/|_| |_| |_|\___|\__, |\__,_/_/    /_/   \___//_/   |____/
+                         __/ |
+                        |___/
+Made by Omega77073, 2025
+Check out the documentation at terminal-doc.omegadev.xyz
+Check out the website for results at terminal.omegadev.xyz
+--]]
+local httpService = game:GetService("HttpService")
+local runService = game:GetService("RunService")
+local groupService = game:GetService("GroupService")
+-------------- TYPES -----------------
+type terminal = {
+
+	components: { [string]: any },
+
+	events: {
+		partialUpdate: BindableEvent,
+		endEvent: BindableEvent,
+		startEvent: BindableEvent,
+	},
+
+	timeLeft: number,
+	defenderPoints: number,
+	attackerPoints: number,
+	state: "attackers" | "defenders" | "neutral" | "locked",
+
+	Lock: () -> nil,
+	Unlock: () -> nil,
+	AddProgress: (team: "attackers" | "defenders", progress: number) -> nil,
+	Reset: () -> nil,
+	Tick: (tickRate: number) -> nil,
+
+	UpdateConfig: (newConfig: any) -> nil,
+
+	terminalId: string,
+}
+
+type addon = {
+	metadata: { [string]: any }?,
+	init: (any) -> nil,
+	Libraries: { Instance }?,
+	id: string?,
+}
+
+local Libraries
+if game.ReplicatedStorage:FindFirstChild("Libraries") ~= nil then
+	Libraries = script:FindFirstChild("Libraries")
+	if Libraries ~= nil then
+		for _, lib in pairs(Libraries:GetChildren()) do
+			if lib:IsA("ModuleScript") and game.ReplicatedStorage.Libraries:FindFirstChild(lib.Name) == nil then
+				lib.Parent = game.ReplicatedStorage.Libraries
+			end
+		end
+	end
+	Libraries = game.ReplicatedStorage:FindFirstChild("Libraries")
+else
+	Libraries = script:FindFirstChild("Libraries")
+	if Libraries ~= nil then
+		Libraries.Parent = game.ReplicatedStorage
+	end
+end
+
+local config = require(game.ReplicatedStorage:FindFirstChild("OmegasTerminalConfig"))
+
+local module = {}
+module.controls = {}
+local packets = require(Libraries:FindFirstChild("OmegasTerminalPackets"))
+module.defaultAddons = script.DefaultAddons
+
+function module.updatePersistantConfig()
+	module.persistantConfig:SetAttribute(
+		"core_config",
+		httpService:JSONEncode({
+			timeLimit = module.config.timeLimit,
+
+			attackers = {
+				groupId = module.config.attackers.groupId,
+				icon = module.config.attackers.icon,
+				name = module.config.attackers.name,
+				teamName = module.config.attackers.team.Name,
+			},
+
+			defenders = {
+				groupId = module.config.defenders.groupId,
+				icon = module.config.defenders.icon,
+				name = module.config.defenders.name,
+				teamName = module.config.defenders.team.Name,
+			},
+
+			endTime = module.endTime,
+			timeFrozen = module.timeFrozen,
+			started = module.started,
+			startTime = module.startTime,
+		})
+	)
+	module.persistantConfig:SetAttribute("properties", httpService:JSONEncode(module.properties))
+end
+
+function checkConfig(cfg)
+	assert(cfg.attackers.team ~= nil, "[TERMINAL] Attackers team is not set")
+	assert(cfg.defenders.team ~= nil, "[TERMINAL] Defenders team is not set")
+
+	if cfg.attackers.groupId == "" and (cfg.attackers.icon == "" or cfg.attackers.name == "") then
+		warn("[TERMINAL] Attackers groupId is empty but attackers are missing a name/icon, you may want to set one")
+	end
+	if cfg.defenders.groupId == "" and (cfg.defenders.icon == "" or cfg.defenders.name == "") then
+		warn("[TERMINAL] Defenders groupId is empty but defenders are missing a name/icon, you may want to set one")
+	end
+
+	if cfg.telemetry == false then
+		warn("[TERMINAL] Telemetry is disabled, please consider enabling to help development.")
+	end
+
+	if cfg.terminalTickRate > 30 then
+		warn("[TERMINAL] Terminal tick rate is set above 30Hz, this may impact performance.")
+	end
+
+	if cfg.timeLimit < 5 then
+		warn("[TERMINAL] Terminal time limit is set below 5 minutes, is this intended?")
+	end
+end
+
+function checkOutdatedVersion(displayName, selfVersion, versionData)
+	selfVersion = string.gsub(selfVersion, "v", "")
+	versionData.version = string.gsub(versionData.version, "v", "")
+	if selfVersion == versionData.version then
+		return
+	end
+	local printFunction = if versionData.outdateLevel == "warn"
+		then warn
+		else (if versionData.outdateLevel == "error" then error else print)
+
+	local messages = {
+		`------------------  [TERMINAL][OUTDATED VERSION] ------------------`,
+		`{displayName} (v{selfVersion}) is outdated. Latest version is {versionData.version}`,
+		`Changelog: {versionData.changelog}`,
+		`Download new version on the website !`,
+		`------------------------------------------------------------------`,
+	}
+
+	if printFunction == error then
+		printFunction(table.concat(messages, "\n"))
+	else
+		for _, message in pairs(messages) do
+			printFunction(message)
+		end
+	end
+end
+
+function module.Init()
+	module.config = config
+	checkConfig(module.config)
+
+	module.terminal = nil
+	module.terminalConnections = {}
+	module.terminalMetadata = {}
+
+	module.addons = {}
+	module.properties = {} -- space used by addons
+
+	module.endTime = 0
+	module.startTime = 0
+	module.started = false
+	module.timeFrozen = false
+	module.frozenAt = 0
+	module.frozenTime = 0
+
+	module.debug = {
+		enabled = false,
+	}
+
+	module.state = {}
+
+	module.tickCallbacks = {
+		preTick = {
+			async = {},
+			sync = {},
+		},
+		postTick = {
+			async = {},
+			sync = {},
+		},
+	}
+
+	local persistantConfigInstance = Instance.new("Configuration")
+	persistantConfigInstance.Name = "OmegasTerminalConfig_Persistant"
+	module.persistantConfig = persistantConfigInstance
+	persistantConfigInstance.Parent = game.ReplicatedStorage
+	module.updatePersistantConfig()
+
+	packets.requestUI.listen(function(data, player)
+		local isAdmin = module.config.isAdmin(player)
+		packets.requestUI.sendTo(isAdmin, player)
+	end)
+
+	local logEvent = Instance.new("BindableEvent")
+	logEvent.Name = "Terminal-LogEvent"
+	module.logEvent = logEvent
+	logEvent.Parent = game.ReplicatedStorage
+
+	module.initiated = true
+
+	task.spawn(function()
+		while shared._K_INTERFACE == nil do
+			task.wait(1)
+		end
+		local _K = shared._K_INTERFACE
+
+		module.logEvent.Event:Connect(function(message, UserId)
+			_K.log(`[TERMINAL] - {message}`, "COMMAND", UserId)
+		end)
+
+		while task.wait(5) do
+			for _, player in pairs(game.Players:GetPlayers()) do
+				if module.config.isAdmin(player) then
+					packets.requestUI.sendTo(true, player)
+				else
+					packets.requestUI.sendTo(false, player)
+				end
+			end
+		end
+	end)
+
+	task.spawn(function()
+		if module.config.attackers.groupId ~= "" then
+			if module.config.attackers.icon == "" or module.config.attackers.name == "" then
+				local groupInfo = groupService:GetGroupInfoAsync(module.config.attackers.groupId)
+				module.config.attackers.icon = module.config.attackers.icon == "" and groupInfo.EmblemUrl
+					or module.config.attackers.icon
+				module.config.attackers.name = module.config.attackers.name == "" and groupInfo.Name
+					or module.config.attackers.name
+			end
+		end
+		if module.config.defenders.groupId ~= "" then
+			if module.config.defenders.icon == "" or module.config.defenders.name == "" then
+				local groupInfo = groupService:GetGroupInfoAsync(module.config.defenders.groupId)
+				module.config.defenders.icon = module.config.defenders.icon == "" and groupInfo.EmblemUrl
+					or module.config.defenders.icon
+				module.config.defenders.name = module.config.defenders.name == "" and groupInfo.Name
+					or module.config.defenders.name
+			end
+		end
+	end)
+
+	task.spawn(function()
+		require(script.telemetry)(script:GetAttribute("version"), module)
+	end)
+
+	workspace:SetAttribute("GameName", "Unknown game")
+	task.spawn(function()
+		pcall(function()
+			local gameName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
+			workspace:SetAttribute("GameName", gameName)
+			module.gameName = gameName
+		end)
+	end)
+
+	game.Players.PlayerAdded:Connect(function(player)
+		packets.statusUpdate.sendTo(module.state, player)
+	end)
+
+	task.spawn(function()
+		local versions = httpService:GetAsync(
+			"https://raw.githubusercontent.com/Omega-dev0/Clanning-terminal/refs/heads/master/versions.json"
+		)
+		local versionsData = httpService:JSONDecode(versions)
+
+		module.versionsData = versionsData
+
+		local currentVersion = script:GetAttribute("version")
+		local latestCoreVersion = versionsData.core
+
+		checkOutdatedVersion("Core", currentVersion, latestCoreVersion)
+	end)
+end
+
+--- Controls ---
+
+function module.controls:modifyConfig(newConfig: any, player: Player?)
+	-- Updating group icon and name
+	if newConfig.attackers.groupId ~= module.config.attackers.groupId and newConfig.attackers.groupId ~= "" then
+		local groupInfo = groupService:GetGroupInfoAsync(newConfig.attackers.groupId)
+		if groupInfo then
+			module.config.attackers.name = groupInfo.Name
+			module.config.attackers.icon = groupInfo.EmblemUrl
+			module.config.attackers.groupId = newConfig.attackers.groupId
+		end
+	end
+	if newConfig.defenders.groupId ~= module.config.defenders.groupId and newConfig.defenders.groupId ~= "" then
+		local groupInfo = groupService:GetGroupInfoAsync(newConfig.defenders.groupId)
+		if groupInfo then
+			module.config.defenders.name = groupInfo.Name
+			module.config.defenders.icon = groupInfo.EmblemUrl
+			module.config.defenders.groupId = newConfig.defenders.groupId
+		end
+	end
+
+	local remainingKeys = {}
+	for key, value in pairs(newConfig) do
+		if key == "attackers" or key == "defenders" then
+			continue
+		end
+		if module.config[key] ~= nil then
+			if module.config[key] == value then
+				continue
+			end
+			if player ~= nil then
+				module.logEvent:Fire(`Updated wrapper config {key} ({module.config[key]} -> {value})`, player.UserId)
+			end
+			module.config[key] = value
+		else
+			remainingKeys[key] = value
+		end
+	end
+
+	if module.started == true then
+		module.endTime = module.startTime + (module.config.timeLimit * 60)
+	end
+
+	module.terminal:UpdateConfig(remainingKeys, player)
+	module.updatePersistantConfig()
+end
+
+function module.controls:FreezeTime(player: Player?)
+	module.timeFrozen = true
+	module.frozenAt = workspace:GetServerTimeNow()
+	module.updatePersistantConfig()
+	if player ~= nil then
+		module.logEvent:Fire("Froze time", player.UserId)
+	end
+end
+function module.controls:UnfreezeTime(player: Player?)
+	module.timeFrozen = false
+	module.updatePersistantConfig()
+	if player ~= nil then
+		module.logEvent:Fire("Unfroze time", player.UserId)
+	end
+end
+function module.controls:AddTime(seconds: number, player: Player?)
+	module.endTime = module.endTime + seconds
+	module.updatePersistantConfig()
+	if player ~= nil then
+		module.logEvent:Fire(`{seconds > 0 and "Added" or "Removed"} {seconds} seconds to timer`, player.UserId)
+	end
+end
+
+function module.controls:AddProgress(team: "attackers" | "defenders", progress: number, player: Player?, ...)
+	if module.terminal ~= nil then
+		module.terminal:AddProgress(team, progress, ...)
+		if player ~= nil then
+			module.logEvent:Fire(`Added {progress * 100}% to {team}`, player.UserId)
+		end
+	end
+end
+
+function module.controls:Lock(player: Player?)
+	if module.terminal then
+		module.terminal:Lock()
+		if player ~= nil then
+			module.logEvent:Fire("Locked terminal", player.UserId)
+		end
+	end
+end
+function module.controls:Unlock(player: Player?)
+	if module.terminal then
+		module.terminal:Unlock()
+		if player ~= nil then
+			module.logEvent:Fire("Unlocked terminal", player.UserId)
+		end
+	end
+end
+function module.controls:Reset(player: Player?)
+	if module.terminal then
+		module.terminal:Reset()
+		if player ~= nil then
+			module.logEvent:Fire("Reset terminal", player.UserId)
+		end
+	end
+end
+function module.controls:Stop(player: Player?)
+	if module.started == false then
+		warn("Terminal is not started, cannot stop it.")
+		return
+	end
+	if module.terminal ~= nil then
+		module.terminal:Lock()
+		module.terminal.events.endEvent:Fire("draw")
+		module.terminal:Reset()
+	end
+	module.started = false
+	module.timeFrozen = false
+
+	module.updatePersistantConfig()
+	if player ~= nil then
+		module.logEvent:Fire("Stopped the terminal", player.UserId)
+	end
+end
+function module.controls:Start(player: Player?, delay: number?)
+	if module.started == true then
+		warn("Terminal is already started.")
+		return
+	end
+	module.terminal:Reset()
+	module.updatePersistantConfig()
+
+	if module.terminal ~= nil then
+		module.terminal.events.startEvent:Fire()
+		if delay ~= nil then
+			task.wait(delay)
+		end
+		module.started = true
+		module.timeFrozen = false
+		module.startTime = workspace:GetServerTimeNow()
+		module.endTime = module.startTime + (module.config.timeLimit * 60)
+		module.terminal:Unlock()
+		module.updatePersistantConfig()
+		if player ~= nil then
+			module.logEvent:Fire("Started the terminal", player.UserId)
+		end
+	else
+		warn("Starting but no terminal loaded")
+	end
+end
+
+function checkCompatibility(selfVersionString, compatibilityString)
+	local selfVersionSplit = selfVersionString:gsub("v", ""):split(".")
+	local selfVersion = tonumber(selfVersionSplit[1]) * 10000
+		+ tonumber(selfVersionSplit[2]) * 100
+		+ tonumber(selfVersionSplit[3])
+	local operator, versionString = string.match(compatibilityString, "([<>=~]+)([%d%.]+)")
+	local versionSplit = versionString and string.split(versionString:gsub("v", ""), ".") or { "0", "0", "0" }
+	local versionNumber = (tonumber(versionSplit[1]) or 0) * 10000
+		+ (tonumber(versionSplit[2]) or 0) * 100
+		+ (tonumber(versionSplit[3]) or 0)
+
+	local compatible = false
+	if operator == ">=" then
+		compatible = selfVersion >= versionNumber
+	end
+	if operator == "<=" then
+		compatible = selfVersion <= versionNumber
+	end
+	if operator == ">" then
+		compatible = selfVersion > versionNumber
+	end
+	if operator == "<" then
+		compatible = selfVersion < versionNumber
+	end
+	if operator == "==" then
+		compatible = selfVersion == versionNumber
+	end
+	if operator == "~=" then
+		compatible = selfVersion ~= versionNumber
+	end
+	return compatible
+end
+
+--- Management ---
+function module:AddAddon(moduleScript: ModuleScript)
+	local sucess, result = pcall(function()
+		assert(
+			typeof(moduleScript) == "Instance" and moduleScript:IsA("ModuleScript"),
+			"The addon must be a ModuleScript ! Got: " .. typeof(moduleScript)
+		)
+		if not module.initiated then
+			error("Module not initiated. Call module.Init() first.")
+		end
+		local m = require(moduleScript) :: addon
+
+		local compatibility = m.metadata and m.metadata.compatibility or ">=2.0.0"
+		local compatible = checkCompatibility(self.VERSION, compatibility)
+		if not compatible then
+			error(
+				`Addon {m.metadata.name} (version {m.metadata.version}) is not compatible with terminal version {self.VERSION}. Required: {compatibility}`
+			)
+		end
+
+		local uniqueId = httpService:GenerateGUID(false)
+		local addonId = m.id or uniqueId
+		for _, lib in pairs(m.Libraries or {}) do
+			if game.ReplicatedStorage.Libraries:FindFirstChild(lib.Name) == nil then
+				lib.Parent = game.ReplicatedStorage.Libraries
+			end
+		end
+
+		if module.addons[addonId] ~= nil then
+			warn(`Duplicate addon id:{addonId}, changing id to {uniqueId}`)
+			addonId = uniqueId
+		end
+
+		module.addons[addonId] = m.metadata or {}
+
+		if m.metadata ~= nil and module.versionsData ~= nil then
+			local knownLatestVersion = module.versionsData[addonId]
+			if knownLatestVersion ~= nil then
+				checkOutdatedVersion(
+					`Addon: {m.metadata.name and m.metadata.name or addonId}`,
+					m.metadata.version and m.metadata.version or "unknown",
+					knownLatestVersion
+				)
+			end
+		end
+
+		m.init(self)
+
+		print(
+			`[TERMINAL] Loaded addon: {m.metadata.name} ({addonId}, {m.metadata.version}) | Compatibility: {compatibility}`
+		)
+	end)
+	if not sucess then
+		error(`[TERMINAL] Failed to load addon {moduleScript.Name}: {tostring(result)}`)
+	end
+end
+
+function module:SwitchTerminalComponent(name: string, newComponent: (any) -> any)
+	if not module.initiated then
+		error("Module not initiated. Call module.Init() first.")
+	end
+	if not module.terminal then
+		error("Terminal not initialized.")
+	end
+
+	if module.terminal.components[name] == nil then
+		local availableComponents = table.concat(table.keys(module.terminal.components), ", ")
+		error("Terminal component '" .. name .. "' does not exist, available components: " .. availableComponents)
+	else
+		module.terminal.components[name] = newComponent
+		print("[TERMINAL] Switched terminal component: " .. name)
+	end
+end
+
+function module:AddTickCallback(f: (tickRate: number) -> nil, isAsync: boolean?, tickPhase: "preTick" | "postTick"?)
+	assert(type(f) == "function", "First argument must be a function")
+	assert(
+		tickPhase == nil or tickPhase == "preTick" or tickPhase == "postTick",
+		"tickPhase must be either 'preTick' or 'postTick'"
+	)
+	assert(isAsync == nil or type(isAsync) == "boolean", "isAsync must be a boolean")
+	tickPhase = tickPhase or "postTick"
+	isAsync = isAsync or true
+	table.insert(module.tickCallbacks[tickPhase][isAsync and "async" or "sync"], f)
+end
+
+function module:LoadTerminal(moduleScript: ModuleScript)
+	assert(
+		typeof(moduleScript) == "Instance" and moduleScript:IsA("ModuleScript"),
+		"The terminal must be a ModuleScript ! Got: " .. typeof(moduleScript)
+	)
+
+	local terminalModule = require(moduleScript)
+	local data = terminalModule(self)
+
+	local compatibility = data.metadata and data.metadata.compatibility or ">=2.0.0"
+	local compatible = checkCompatibility(self.VERSION, compatibility)
+	if not compatible then
+		error(
+			`Terminal {data.metadata.name} (version {data.metadata.version}) is not compatible with terminal version {self.VERSION}. Required: {compatibility}`
+		)
+	end
+
+	local terminal, metadata, libraries = data.terminal, data.metadata, data.libraries
+	for _, connection in pairs(module.terminalConnections) do
+		connection:Disconnect()
+	end
+	for _, lib in pairs(libraries) do
+		if game.ReplicatedStorage:FindFirstChild(lib.Name) == nil then
+			lib.Parent = game.ReplicatedStorage.Libraries
+		end
+	end
+	module.terminalConnections = {}
+
+	module.properties.currentTerminal = metadata.name or "Unknown Terminal"
+
+	table.insert(
+		module.terminalConnections,
+		terminal.events.partialUpdate.Event:Connect(function(updateData)
+			packets.partialStatusUpdate.sendToAll(updateData)
+			for _, obj in pairs(updateData) do
+				module.state[obj.stateKey] = obj.stateValue
+			end
+		end)
+	)
+
+	table.insert(
+		module.terminalConnections,
+		terminal.events.startEvent.Event:Connect(function()
+			module.timeFrozen = false
+			module.updatePersistantConfig()
+			packets.terminalEvent.sendToAll({
+				eventName = "start",
+				data = nil,
+			})
+		end)
+	)
+
+	terminal.events.endEvent.Event:Connect(function(winner)
+		module.timeFrozen = true
+		module.started = false
+		module.updatePersistantConfig()
+		packets.terminalEvent.sendToAll({
+			eventName = "end",
+			data = winner,
+		})
+	end)
+
+	local s = 0
+	local realTickRate = 1 / module.config.terminalTickRate
+	table.insert(
+		module.terminalConnections,
+		runService.Heartbeat:Connect(function(deltaTime)
+			s = s + deltaTime
+			if s >= 1 / module.config.terminalTickRate then
+				realTickRate = 1 / s
+				if module.started then
+					if module.timeFrozen then
+						module.endTime = module.endTime + s
+						module.frozenTime = module.frozenTime + s
+					end
+					module.terminal.timeLeft = module.endTime - workspace:GetServerTimeNow()
+
+					for _, f in pairs(module.tickCallbacks.preTick.sync) do
+						f(realTickRate)
+					end
+					for _, f in pairs(module.tickCallbacks.preTick.async) do
+						task.spawn(f, realTickRate)
+					end
+
+					module.terminal:Tick(realTickRate)
+
+					for _, f in pairs(module.tickCallbacks.postTick.sync) do
+						f(realTickRate)
+					end
+					for _, f in pairs(module.tickCallbacks.postTick.async) do
+						task.spawn(f, realTickRate)
+					end
+				end
+				s = 0
+			end
+		end)
+	)
+
+	module.terminal = terminal
+	module.terminalMetadata = metadata
+
+	print("[TERMINAL] Loaded terminal: " .. (metadata.name or "Unknown Terminal"))
+end
+
+function module:ToggleDebug(enabled: boolean)
+	module.debug.enabled = enabled
+	if self.terminal ~= nil then
+		if self.terminal.toggleDebug ~= nil then
+			self.terminal:toggleDebug(enabled)
+		end
+	end
+end
+
+return module
