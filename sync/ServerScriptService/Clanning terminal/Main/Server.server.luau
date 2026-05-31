@@ -20,7 +20,7 @@ print(`------------------  [OMEGA'S TERMINAL {mainModule.version}] -------------
 --━━━━━━━━━━━━━━━━━━━ SERVER ━━━━━━━━━━━━━━━━━━━--
 wrapper.Init()
 --━━━━━━━━━━━━━━━━━━━ LOAD TERMINAL ━━━━━━━━━━━━━━━━━━━--
-wrapper:LoadTerminal(script.Parent.Parent.Terminals["Terminal-Default"]) -- Load the terminal
+wrapper:LoadTerminal(script.Parent.Parent.Terminals["Terminal - Default"]) -- Load the terminal
 --━━━━━━━━━━━━━━━━━━━ LOAD ADDONS ━━━━━━━━━━━━━━━━━━━--
 wrapper:AddAddon(wrapper.defaultAddons.UI)
 wrapper:AddAddon(wrapper.defaultAddons.PanelV2)

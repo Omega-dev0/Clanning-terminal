@@ -265,7 +265,7 @@ function module.Init()
 		packets.statusUpdate.sendTo(module.state, player)
 	end)
 
-	task.spawn(function()
+	--[[ task.spawn(function()
 		local versions = httpService:GetAsync(
 			"https://raw.githubusercontent.com/Omega-dev0/Clanning-terminal/refs/heads/master/versions.json"
 		)
@@ -277,7 +277,7 @@ function module.Init()
 		local latestCoreVersion = versionsData.core
 
 		checkOutdatedVersion("Core", currentVersion, latestCoreVersion)
-	end)
+	end) ]]
 end
 
 --- Controls ---
